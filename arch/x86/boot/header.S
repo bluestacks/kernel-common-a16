@@ -314,7 +314,7 @@ start_sys_seg:	.word	SYSSEG		# obsolete and meaningless, but just
 					# with loadlin-1.5 (header v1.5). Don't
 					# change it.
 
-type_of_loader:	.byte	0		# 0 means ancient bootloader, newer
+type_of_loader:	.byte	0x20		# 0 means ancient bootloader, newer
 					# bootloaders know to change this.
 					# See Documentation/x86/boot.rst for
 					# assigned ids

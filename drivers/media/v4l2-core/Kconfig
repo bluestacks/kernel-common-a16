@@ -78,7 +78,12 @@ config V4L2_ASYNC
 
 # Used by drivers that need Videobuf modules
 config VIDEOBUF_GEN
-	tristate
+	tristate "Enable videobuf for Bluestacks bstcamera"
+	depends on VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	help
+	  Say Y here to enable VIDEOBUF_GEN
+
+	  Recommend to refactor bstcamera using videobuf2 instead of videobuf
 
 config VIDEOBUF_DMA_SG
 	tristate

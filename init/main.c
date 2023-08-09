@@ -162,7 +162,7 @@ static size_t initargs_offs;
 #endif
 
 static char *execute_command;
-static char *ramdisk_execute_command = "/init";
+static char *ramdisk_execute_command = "/boot/init";
 
 /*
  * Used to generate warnings if static_key manipulation functions are used

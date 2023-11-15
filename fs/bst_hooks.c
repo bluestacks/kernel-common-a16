@@ -65,9 +65,12 @@ struct task_struct *get_taskstruct_from_pid(int p_id)
 static char *realpath(const char * __restrict path, char * __restrict resolved)
 {
     char *p, *q, *s;
+    size_t buf_len;
     size_t left_len, resolved_len;
     int errno;
-    char left[256], next_token[256];
+    char *left = NULL;
+    char *next_token = NULL;
+    char *ret = resolved;
 
     if (path == NULL) {
         errno = EINVAL;
@@ -85,24 +88,31 @@ static char *realpath(const char * __restrict path, char * __restrict resolved)
         return (NULL);
     }
 
+    buf_len = strlen(path) + 1;
+    left = kzalloc(buf_len, GFP_KERNEL);
+    next_token = kzalloc(buf_len, GFP_KERNEL);
+
     if (path[0] == '/') {
         resolved[0] = '/';
         resolved[1] = '\0';
         if (path[1] == '\0')
-            return (resolved);
+		goto out;
+
         resolved_len = 1;
-        left_len = strlcpy(left, path + 1, sizeof(left));
+        left_len = strlcpy(left, path + 1, buf_len);
     } else {
         errno = EINVAL;
         // returning as all path should start from /, otherwise we are not sure what app is trying
         // to open, so in that case we do not evaluate realpath.
         // printk(KERN_WARNING "%d error while resolving realpath %d", __LINE__, errno);
-        return (NULL);
+	ret = NULL;
+	goto out;
     }
     if (left_len >= sizeof(left) || resolved_len >= PATH_MAX) {
         errno = ENAMETOOLONG;
         printk(KERN_WARNING "%d error while resolving realpath %d", __LINE__, errno);
-        return (NULL);
+	ret = NULL;
+	goto out;
     }
 
     /*
@@ -118,7 +128,8 @@ static char *realpath(const char * __restrict path, char * __restrict resolved)
         if (s - left >= sizeof(next_token)) {
             errno = ENAMETOOLONG;
             printk(KERN_WARNING "%d error while resolving realpath %d", __LINE__, errno);
-            return (NULL);
+	    ret = NULL;
+	    goto out;
         }
         memcpy(next_token, left, s - left);
         next_token[s - left] = '\0';
@@ -129,7 +140,8 @@ static char *realpath(const char * __restrict path, char * __restrict resolved)
             if (resolved_len + 1 >= PATH_MAX) {
                 errno = ENAMETOOLONG;
                 printk(KERN_WARNING "%d error while resolving realpath %d", __LINE__, errno);
-                return (NULL);
+		ret = NULL;
+		goto out;
             }
             resolved[resolved_len++] = '/';
             resolved[resolved_len] = '\0';
@@ -161,8 +173,9 @@ static char *realpath(const char * __restrict path, char * __restrict resolved)
         if (resolved_len >= PATH_MAX) {
             errno = ENAMETOOLONG;
             printk(KERN_WARNING "%d error while resolving realpath %d", __LINE__, errno);
-            return (NULL);
-        }
+            	ret = NULL;
+		goto out;
+	}
     }
 
     /*
@@ -172,7 +185,10 @@ static char *realpath(const char * __restrict path, char * __restrict resolved)
     if (resolved_len > 1 && resolved[resolved_len - 1] == '/')
         resolved[resolved_len - 1] = '\0';
 
-    return (resolved);
+out:
+	kfree(next_token);
+	kfree(left);
+	return ret;
 }
 
 

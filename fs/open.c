@@ -20,6 +20,7 @@
 #include <linux/mount.h>
 #include <linux/fcntl.h>
 #include <linux/slab.h>
+#include <linux/stat.h>
 #include <linux/uaccess.h>
 #include <linux/fs.h>
 #include <linux/personality.h>
@@ -33,9 +34,12 @@
 #include <linux/dnotify.h>
 #include <linux/compat.h>
 #include <linux/mnt_idmapping.h>
+#include <linux/uidgid.h>
 
 #include "internal.h"
 #include <trace/hooks/syscall_check.h>
+
+#include "bst_hooks.h"
 
 int do_truncate(struct user_namespace *mnt_userns, struct dentry *dentry,
 		loff_t length, unsigned int time_attrs, struct file *filp)
@@ -401,9 +405,21 @@ static long do_faccessat(int dfd, const char __user *filename, int mode, int fla
 	int res;
 	unsigned int lookup_flags = LOOKUP_FOLLOW;
 	const struct cred *old_cred = NULL;
+	return_v redirect = NO_CHANGE;
 
 	if (mode & ~S_IRWXO)	/* where's F_OK, X_OK, W_OK, R_OK? */
 		return -EINVAL;
+
+	redirect = bst_hook_file(filename, FOLLOW_LINK);
+	if (redirect == REDIRECT_NON_EXISTENT_PATH) {
+		return -ENOENT;
+	} else if (redirect == REDIRECT_PERMISSION_DENIED_PATH) {
+		return -EACCES;
+	} else if (redirect == REDIRECT_OPERATION_NOT_PERMITTED) {
+		return -EPERM;
+	} else if (redirect == REDIRECT_RETURN_OK) {
+		return 0;
+	}
 
 	if (flags & ~(AT_EACCESS | AT_SYMLINK_NOFOLLOW | AT_EMPTY_PATH))
 		return -EINVAL;
@@ -1221,6 +1237,7 @@ static long do_sys_openat2(int dfd, const char __user *filename,
 	struct open_flags op;
 	int fd = build_open_flags(how, &op);
 	struct filename *tmp;
+	return_v retval = NO_CHANGE;
 
 	if (fd)
 		return fd;
@@ -1228,6 +1245,22 @@ static long do_sys_openat2(int dfd, const char __user *filename,
 	tmp = getname(filename);
 	if (IS_ERR(tmp))
 		return PTR_ERR(tmp);
+
+	if (bst_open_security_hook(tmp) > 0) {
+		if (BST_DEBUG) printk(KERN_ERR "BLUESTACK_HACK returning ret = %lu\n", retval);
+		putname(tmp);
+		return -75;
+	}
+
+	// Check if original open filepath is of our interest or not.
+	retval = __bst_hook_file(tmp, filename, FOLLOW_LINK);
+	if (retval == REDIRECT_PERMISSION_DENIED_PATH) {
+		putname(tmp);
+		return -EACCES;
+	} else if (retval == REDIRECT_OPERATION_NOT_PERMITTED) {
+		putname(tmp);
+		return -EPERM;
+	}
 
 	fd = get_unused_fd_flags(how->flags);
 	if (fd >= 0) {

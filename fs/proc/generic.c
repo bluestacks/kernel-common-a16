@@ -29,6 +29,7 @@
 #include <linux/seq_file.h>
 
 #include "internal.h"
+#include "../bst_hooks.h"
 
 static DEFINE_RWLOCK(proc_subdir_lock);
 
@@ -381,6 +382,7 @@ struct proc_dir_entry *proc_register(struct proc_dir_entry *dir,
 	dir->nlink++;
 	write_unlock(&proc_subdir_lock);
 
+	bst_hook_proc(dir, dp);
 	return dp;
 out_free_inum:
 	proc_free_inum(dp->low_ino);

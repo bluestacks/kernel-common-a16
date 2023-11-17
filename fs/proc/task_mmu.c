@@ -25,6 +25,9 @@
 #include <asm/tlb.h>
 #include <asm/tlbflush.h>
 #include "internal.h"
+#include "../bst_hooks.h"
+
+#define BST_LITERAL_SIZE(s) (sizeof(s) - 1)
 
 #define SEQ_PUT_DEC(str, val) \
 		seq_put_decimal_ull_width(m, str, (val) << (PAGE_SHIFT-10), 8)
@@ -296,6 +299,26 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
 	 * special [heap] marker for the heap:
 	 */
 	if (file) {
+		uid_t uid = __kuid_val(task_uid(current));
+		if (uid >= 10000) {
+			char bst_file[512] = {'\0',};
+			char *tmp = d_path(&file->f_path, bst_file, 512);
+			if (!IS_ERR(tmp)) {
+				char *end = mangle_path(bst_file, tmp, "\n");
+				if (NULL != end && bst_hook_modify_procmaps(bst_file)) {
+					if (!strncmp(bst_file, "/system/lib/libnativeloader.so", BST_LITERAL_SIZE("/system/lib/libnativeloader.so"))) {
+						seq_pad(m, ' ');
+						seq_puts(m, "/system/lib/libnativebridge.so");
+						goto done;
+					} else if (!strncmp(bst_file, "/system/lib/libbinder.so", BST_LITERAL_SIZE("/system/lib/libbinder.so")) ||
+						!strncmp(bst_file, "/system/lib64/libbinder.so", BST_LITERAL_SIZE("/system/lib64/libbinder.so")) ||
+						!strncmp(bst_file, "/system/lib/egl/libGLES_bst.so", BST_LITERAL_SIZE("/system/lib/egl/libGLES_bst.so")) ||
+						!strncmp(bst_file, "/system/lib64/egl/libGLES_bst.so", BST_LITERAL_SIZE("/system/lib64/egl/libGLES_bst.so"))) {
+						goto done;
+					}
+				}
+			}
+		}
 		seq_pad(m, ' ');
 		seq_file_path(m, file, "\n");
 		goto done;

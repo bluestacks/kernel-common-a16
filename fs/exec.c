@@ -75,6 +75,8 @@
 
 #include <trace/events/sched.h>
 
+#include "bst_hooks.h"
+
 EXPORT_TRACEPOINT_SYMBOL_GPL(task_rename);
 
 static int bprm_creds_from_file(struct linux_binprm *bprm);
@@ -2097,7 +2099,23 @@ SYSCALL_DEFINE3(execve,
 		const char __user *const __user *, argv,
 		const char __user *const __user *, envp)
 {
-	return do_execve(getname(filename), argv, envp);
+	int ret;
+	struct filename *path = getname(filename);
+	int error = PTR_ERR(path);
+
+	if (!IS_ERR(path)) {
+		ret = __bst_hook_file(path, filename, DO_NOT_FOLLOW_LINK);
+		if (ret == REDIRECT_NON_EXISTENT_PATH) {
+			error = -ENOENT;
+			putname(path);
+		} else if (ret == REDIRECT_PERMISSION_DENIED_PATH) {
+			error = -EPERM;
+			putname(path);
+		} else {
+			error = do_execve(path, argv, envp);
+		}
+	}
+	return error;
 }
 
 SYSCALL_DEFINE5(execveat,

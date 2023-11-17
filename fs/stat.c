@@ -24,6 +24,8 @@
 #include "internal.h"
 #include "mount.h"
 
+#include "bst_hooks.h"
+
 /**
  * generic_fillattr - Fill in the basic attributes from the inode struct
  * @mnt_userns:	user namespace of the mount the inode was found from
@@ -202,6 +204,9 @@ int vfs_fstat(int fd, struct kstat *stat)
 static int vfs_statx(int dfd, const char __user *filename, int flags,
 	      struct kstat *stat, u32 request_mask)
 {
+	struct filename *tmp = NULL;
+	int follow_link_flag = DO_NOT_FOLLOW_LINK;
+	return_v ret;
 	struct path path;
 	unsigned lookup_flags = 0;
 	int error;
@@ -216,6 +221,29 @@ static int vfs_statx(int dfd, const char __user *filename, int flags,
 		lookup_flags |= LOOKUP_AUTOMOUNT;
 	if (flags & AT_EMPTY_PATH)
 		lookup_flags |= LOOKUP_EMPTY;
+
+	if (flags & LOOKUP_FOLLOW)
+		follow_link_flag = FOLLOW_LINK;
+
+	tmp = getname(filename);
+	if (!IS_ERR_OR_NULL(tmp) && tmp->name != NULL) {
+		bst_stat_security_hook(tmp);
+	}
+
+	ret = bst_hook_file(filename, follow_link_flag);
+	if (ret == REDIRECT_NON_EXISTENT_PATH) {
+		error = -ENOENT;
+		goto out;
+	} else if (ret == REDIRECT_PERMISSION_DENIED_PATH) {
+		error = -EACCES;
+		goto out;
+	} else if (ret == REDIRECT_OPERATION_NOT_PERMITTED) {
+		error = -EPERM;
+		goto out;
+	} else if (ret == REDIRECT_RETURN_OK) {
+		error = 0;
+		goto out;
+	}
 
 retry:
 	error = user_path_at(dfd, filename, lookup_flags, &path);
@@ -234,6 +262,10 @@ retry:
 		goto retry;
 	}
 out:
+	if (!IS_ERR_OR_NULL(tmp)) {
+		putname(tmp);
+		tmp = NULL;
+	}
 	return error;
 }
 

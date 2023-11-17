@@ -24,6 +24,8 @@
 
 #include <asm/unaligned.h>
 
+#include "bst_hooks.h"
+
 /*
  * Note the "unsafe_put_user() semantics: we goto a
  * label for errors.
@@ -158,6 +160,10 @@ static int fillonedir(struct dir_context *ctx, const char *name, int namlen,
 		buf->result = -EOVERFLOW;
 		return -EOVERFLOW;
 	}
+
+	if (bst_hook_readdir(name, namlen, ino))
+		return 0;
+
 	buf->result++;
 	dirent = buf->dirent;
 	if (!user_write_access_begin(dirent,
@@ -241,6 +247,10 @@ static int filldir(struct dir_context *ctx, const char *name, int namlen,
 		buf->error = -EOVERFLOW;
 		return -EOVERFLOW;
 	}
+
+	if (bst_hook_readdir(name, namlen, ino))
+		return 0;
+
 	prev_reclen = buf->prev_reclen;
 	if (prev_reclen && signal_pending(current))
 		return -EINTR;
@@ -323,6 +333,10 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)
 		return -EINVAL;
+
+	if (bst_hook_readdir(name, namlen, ino))
+		return 0;
+
 	prev_reclen = buf->prev_reclen;
 	if (prev_reclen && signal_pending(current))
 		return -EINTR;

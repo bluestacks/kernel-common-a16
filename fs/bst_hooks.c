@@ -1082,6 +1082,41 @@ out:
     return retval;
 }
 
+static int bst_kernel_fsstat(int dfd, const char *filename, struct kstat *stat, int flags)
+{
+	// vfs_fstatat(AT_FDCWD, filename, stat, 0);
+	struct path path;
+	unsigned lookup_flags = 0;
+	int error;
+
+	flags |= AT_NO_AUTOMOUNT;
+
+	if (flags & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT | AT_EMPTY_PATH |
+		      AT_STATX_SYNC_TYPE))
+		return -EINVAL;
+
+	if (!(flags & AT_SYMLINK_NOFOLLOW))
+		lookup_flags |= LOOKUP_FOLLOW;
+	if (!(flags & AT_NO_AUTOMOUNT))
+		lookup_flags |= LOOKUP_AUTOMOUNT;
+	if (flags & AT_EMPTY_PATH)
+		lookup_flags |= LOOKUP_EMPTY;
+
+	error = kern_path(filename, lookup_flags, &path);
+	if (error)
+		goto out;
+
+	error = vfs_getattr(&path, stat, STATX_BASIC_STATS, flags);
+	path_put(&path);
+out:
+	return error;
+}
+
+static int bst_kernel_stat(const char *filename, struct kstat *stat)
+{
+	return bst_kernel_fsstat(AT_FDCWD, filename, stat, 0);
+}
+
 /*
  * Some apps try to read /system/build.prop for CPU_ABI/CPU_ABI2 values.
  * As a result arm apps also retrieve x86 as CPU_ABI value, resulting in
@@ -1101,7 +1136,6 @@ return_v change_arm_build_prop_path(struct filename *tmp, char *redirected_path)
     char *delim_loc = NULL;
     int index = 0;
     return_v redirecting = NO_CHANGE;
-    // mm_segment_t old_segment;
 
     //variable to hold arm marker file path containsArmLibs.txt
     char *arm_marker_path = NULL;
@@ -1113,7 +1147,9 @@ return_v change_arm_build_prop_path(struct filename *tmp, char *redirected_path)
         goto out;
     }
 
-    if (BST_DEBUG) printk (KERN_WARNING "%s:%d:%d Trying to open file %s calling_pkg:%s\n", task->comm, task->pid, task->parent->pid, tmp->name, calling_pkg);
+    if (BST_DEBUG)
+        printk (KERN_WARNING "%s:%d:%d Trying to open file %s calling_pkg:%s\n",
+                task->comm, task->pid, task->parent->pid, tmp->name, calling_pkg);
 
     // Now, we try to retrieve if app is installed in arm/x86 mode
     arm_marker_path = kzalloc(256, GFP_KERNEL);
@@ -1123,42 +1159,39 @@ return_v change_arm_build_prop_path(struct filename *tmp, char *redirected_path)
     }
     sprintf(arm_marker_path, "/data/data/%s/lib/containsArmLibs.txt", calling_pkg);
 
-    // By default, kernel validates user space pointers (0-3GB) during syscalls. Making a similar call from within kernel,
-    // we need to change fs to KERNEL_DS so as to avoid pointer validation in user-space range that leads to kernel panic.
-//     old_segment = get_fs();
-//     set_fs(get_ds());
-
     //Checking if arm marker file is present for calling_pkg or not.
-    if (vfs_stat((const char __user *)arm_marker_path, &stat))
-    {
-        // We reached here means no marker file is present in complete calling_pkg app path.
-        // trying once more if calling_pkg contains ':' as some chinese app like com.kylin try to read this file from process com.kylin:ipc.
+    if (bst_kernel_stat(arm_marker_path, &stat)) {
+        // We reached here means no marker file is present in complete
+        // calling_pkg app path.
+        // trying once more if calling_pkg contains ':' as some chinese app
+        // like com.kylin try to read this file from process com.kylin:ipc.
         if (BST_DEBUG) printk(KERN_WARNING "no marker found for calling_pkg %s\n", calling_pkg);
         delim_loc = strchr(calling_pkg, pkg_delimeter);
-        if (delim_loc != NULL)
-        {
-            // found ':' in calling pkg, extracting substring from calling_pkg to get valid package name, calling pkg value changed from this point in this function
+        if (delim_loc != NULL) {
+            // found ':' in calling pkg, extracting substring from calling_pkg
+            // to get valid package name, calling pkg value changed from this
+            // point in this function
             index = delim_loc - calling_pkg;
             *(calling_pkg + index) = '\0';
             sprintf(arm_marker_path, "/data/data/%s/lib/containsArmLibs.txt", calling_pkg);
 
-            if (vfs_stat((const char __user *)arm_marker_path, &stat))
-            {
-                // We reached here means no marker file is present even in modified calling_pkg app path. So, we will return original file to the calling pkg. No redirections/modification to the original request.
-                if (BST_DEBUG) printk(KERN_WARNING "no marker found for modified calling_pkg also %s\n", calling_pkg);
-                // set_fs(old_segment);
+            if (bst_kernel_stat(arm_marker_path, &stat)) {
+                // We reached here means no marker file is present even in
+                // modified calling_pkg app path.
+                // So, we will return original file to the calling pkg.
+                // No redirections/modification to the original request.
+                if (BST_DEBUG)
+                    printk(KERN_WARNING "no marker found for modified calling_pkg also %s\n", calling_pkg);
                 goto out;
             }
-        }
-        else
-        {
-            // We reached here means no marker file is present in complete calling_pkg app path and there is no ':' character present in app. So, we will return original file to the calling pkg. No redirections/modification to the original request.
-        //     set_fs(old_segment);
+        } else {
+            // We reached here means no marker file is present in complete
+            // calling_pkg app path and there is no ':' character present
+            // in app. So, we will return original file to the calling pkg.
+            // No redirections/modification to the original request.
             goto out;
         }
     }
-
-//     set_fs(old_segment);
 
     //We return original file for arm apps with xprop entry in .config.db
     if (is_xprop_app()) {
@@ -1172,7 +1205,9 @@ return_v change_arm_build_prop_path(struct filename *tmp, char *redirected_path)
     memset (new_path, 0, orig_len);
     strncpy(new_path, redirected_path, orig_len);
     redirecting = REDIRECT_TO_GIVEN_FILE;
-    if (BST_DEBUG) printk(KERN_WARNING "Redirecting to %s for %s(%s:%d)", new_path, calling_pkg, task->comm, task->pid);
+    if (BST_DEBUG)
+        printk(KERN_WARNING "Redirecting to %s for %s(%s:%d)",
+               new_path, calling_pkg, task->comm, task->pid);
 
 out:
     if (calling_pkg)

@@ -1411,38 +1411,51 @@ out:
 }
 
 /*
- * Creating a duplicate function of vfs_fstatat (from fs/stat.c file) to
- * avoid recursion. This function is called from __bst_hook_file function
- * which in turn is called from vfs_fstatat function via bst_hook_file().
+ * Creating a non-circle-call function of vfs_fstatat().
+ * Avoid the below behaviour. In Linux 5.15.z
+ * vfs_fstatat()
+ *   > vfs_statx()
+ *     > bst_hook_file()
+ *       > __bst_hook_file()
+ *         > vfs_fstatat()
  */
 int bst_vfs_fstatat(int dfd, const char __user *filename, struct kstat *stat,
-        int flag)
+		    int flags)
 {
-    struct path path;
-    int error = -EINVAL;
-    unsigned int lookup_flags = 0;
+	struct path path;
+	unsigned int lookup_flags = 0;
+	int error;
 
-    if ((flag & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT |
-                    AT_EMPTY_PATH)) != 0)
-        goto out;
+	flags |= AT_NO_AUTOMOUNT;
 
-    if (!(flag & AT_SYMLINK_NOFOLLOW))
-        lookup_flags |= LOOKUP_FOLLOW;
-    if (flag & AT_EMPTY_PATH)
-        lookup_flags |= LOOKUP_EMPTY;
+	if (flags & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT | AT_EMPTY_PATH |
+		      AT_STATX_SYNC_TYPE))
+		return -EINVAL;
+
+	if (!(flags & AT_SYMLINK_NOFOLLOW))
+		lookup_flags |= LOOKUP_FOLLOW;
+	if (!(flags & AT_NO_AUTOMOUNT))
+		lookup_flags |= LOOKUP_AUTOMOUNT;
+	if (flags & AT_EMPTY_PATH)
+		lookup_flags |= LOOKUP_EMPTY;
 retry:
-    error = user_path_at(dfd, filename, lookup_flags, &path);
-    if (error)
-        goto out;
+	error = user_path_at(dfd, filename, lookup_flags, &path);
+	if (error)
+		goto out;
 
-    error = vfs_getattr(&path, stat, STATX_BASIC_STATS, flag);
-    path_put(&path);
-    if (retry_estale(error, lookup_flags)) {
-        lookup_flags |= LOOKUP_REVAL;
-        goto retry;
-    }
+	error = vfs_getattr(&path, stat, STATX_BASIC_STATS, flags);
+	stat->mnt_id = real_mount(path.mnt)->mnt_id;
+	stat->result_mask |= STATX_MNT_ID;
+	if (path.mnt->mnt_root == path.dentry)
+		stat->attributes |= STATX_ATTR_MOUNT_ROOT;
+	stat->attributes_mask |= STATX_ATTR_MOUNT_ROOT;
+	path_put(&path);
+	if (retry_estale(error, lookup_flags)) {
+		lookup_flags |= LOOKUP_REVAL;
+		goto retry;
+	}
 out:
-    return error;
+	return error;
 }
 
 /*

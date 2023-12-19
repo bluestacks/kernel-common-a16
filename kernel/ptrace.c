@@ -512,6 +512,16 @@ out:
 static int ptrace_traceme(void)
 {
 	int ret = -EPERM;
+	kuid_t uid = current_uid();
+
+	/*
+	 * Case 14390,15027 fix
+	 * Not allowing any user app to attach parent process to itself via PTRACE_TRACEME.
+	 * This behaviour is restricted on actual devices via Selinux in enforced mode.
+	 * The apps remain stuck waiting on 'ptrace_stop' signal.
+	 */
+	if (uid.val >= 10000)
+		return ret;
 
 	write_lock_irq(&tasklist_lock);
 	/* Are we already being traced? */

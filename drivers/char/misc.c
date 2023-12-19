@@ -84,6 +84,16 @@ static int misc_seq_show(struct seq_file *seq, void *v)
 {
 	const struct miscdevice *p = list_entry(v, struct miscdevice, list);
 
+	kuid_t uid = current_uid();
+	if (uid.val >= 10000) {
+		// ErrorCode 70 fix: Not populating bst and vbox specific entries in proc
+		// misc to prevent emulator detection.
+		if (p->name && (strstr(p->name, "bst") != NULL ||
+			strstr(p->name, "vbox") != NULL)) {
+			return 0;
+		}
+	}
+
 	seq_printf(seq, "%3i %s\n", p->minor, p->name ? p->name : "");
 	return 0;
 }

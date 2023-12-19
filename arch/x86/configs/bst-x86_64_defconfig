@@ -595,15 +595,8 @@ CONFIG_X86_SPEEDSTEP_LIB=y
 #
 # CPU Idle
 #
-CONFIG_CPU_IDLE=y
-# CONFIG_CPU_IDLE_GOV_LADDER is not set
-CONFIG_CPU_IDLE_GOV_MENU=y
-# CONFIG_CPU_IDLE_GOV_TEO is not set
-# CONFIG_CPU_IDLE_GOV_HALTPOLL is not set
-CONFIG_HALTPOLL_CPUIDLE=y
+# CONFIG_CPU_IDLE is not set
 # end of CPU Idle
-
-# CONFIG_INTEL_IDLE is not set
 # end of Power management and ACPI options
 
 #
@@ -5199,7 +5192,6 @@ CONFIG_GENERIC_PHY_MIPI_DPHY=y
 
 CONFIG_POWERCAP=y
 # CONFIG_INTEL_RAPL is not set
-# CONFIG_IDLE_INJECT is not set
 # CONFIG_DTPM is not set
 # CONFIG_MCB is not set
 

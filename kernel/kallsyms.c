@@ -860,7 +860,7 @@ static const struct proc_ops kallsyms_proc_ops = {
 
 static int __init kallsyms_init(void)
 {
-	proc_create("kallsyms", 0444, NULL, &kallsyms_proc_ops);
+	proc_create("kallsyms", 0440, NULL, &kallsyms_proc_ops);
 	return 0;
 }
 device_initcall(kallsyms_init);

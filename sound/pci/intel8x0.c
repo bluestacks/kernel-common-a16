@@ -2743,7 +2743,7 @@ static void intel8x0_measure_ac97_clock(struct intel8x0 *chip)
 	if (pos < 40000 || pos >= 60000) {
 		/* abnormal value. hw problem? */
 		dev_info(chip->card->dev, "measured clock %ld rejected\n", pos);
-		goto __retry;
+		goto __end;
 	} else if (pos > 40500 && pos < 41500)
 		/* first exception - 41000Hz reference clock */
 		chip->ac97_bus->clock = 41000;

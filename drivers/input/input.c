@@ -26,6 +26,8 @@
 #include "input-compat.h"
 #include "input-poller.h"
 
+#include "../../fs/bst_hooks.h"
+
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
 MODULE_DESCRIPTION("Input core");
 MODULE_LICENSE("GPL");
@@ -1180,11 +1182,26 @@ static int input_devices_seq_show(struct seq_file *seq, void *v)
 	struct input_dev *dev = container_of(v, struct input_dev, node);
 	const char *path = kobject_get_path(&dev->dev.kobj, GFP_KERNEL);
 	struct input_handle *handle;
+	const char *bst_str = "BlueStacks";
+	const char *vbox_str = "VirtualBox";
+	const char *name_to_show = NULL;
 
 	seq_printf(seq, "I: Bus=%04x Vendor=%04x Product=%04x Version=%04x\n",
 		   dev->id.bustype, dev->id.vendor, dev->id.product, dev->id.version);
 
-	seq_printf(seq, "N: Name=\"%s\"\n", dev->name ? dev->name : "");
+	if (bst_current_uid_is_system()) {
+		seq_printf(seq, "N: Name=\"%s\"\n", dev->name ? dev->name : "");
+	} else {
+		if (bst_str_starts_with(dev->name, bst_str)) {
+			name_to_show = dev->name + strlen(bst_str);
+		} else if (bst_str_starts_with(dev->name, vbox_str)) {
+			name_to_show = dev->name + strlen(vbox_str);
+		} else {
+			name_to_show = dev->name;
+		}
+		seq_printf(seq, "N: Name=\"%s\"\n", name_to_show ? name_to_show : "");
+	}
+
 	seq_printf(seq, "P: Phys=%s\n", dev->phys ? dev->phys : "");
 	seq_printf(seq, "S: Sysfs=%s\n", path ? path : "");
 	seq_printf(seq, "U: Uniq=%s\n", dev->uniq ? dev->uniq : "");

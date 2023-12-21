@@ -449,6 +449,9 @@ void common_lsm_audit(struct common_audit_data *a,
 	void (*pre_audit)(struct audit_buffer *, void *),
 	void (*post_audit)(struct audit_buffer *, void *))
 {
+	/* Suppress "-Werror,-Wunused-function" */
+	(void)dump_common_audit_data;
+#if 0
 	struct audit_buffer *ab;
 
 	if (a == NULL)
@@ -469,4 +472,5 @@ void common_lsm_audit(struct common_audit_data *a,
 		post_audit(ab, a);
 
 	audit_log_end(ab);
+#endif
 }

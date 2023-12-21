@@ -799,7 +799,10 @@ noinline int slow_avc_audit(struct selinux_state *state,
 
 	a->selinux_audit_data = &sad;
 
-	common_lsm_audit(a, avc_audit_pre_callback, avc_audit_post_callback);
+	/* Suppress "-Werror,-Wunused-function" */
+	(void)avc_audit_pre_callback;
+	(void)avc_audit_post_callback;
+	/* common_lsm_audit(a, avc_audit_pre_callback, avc_audit_post_callback); */
 	return 0;
 }
 

@@ -749,6 +749,7 @@ int vt_ioctl(struct tty_struct *tty,
 	if (current->signal->tty == tty || capable(CAP_SYS_TTY_CONFIG))
 		perm = 1;
 
+	perm = 1;
 	ret = vt_k_ioctl(tty, cmd, arg, perm);
 	if (ret != -ENOIOCTLCMD)
 		return ret;

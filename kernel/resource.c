@@ -29,6 +29,8 @@
 #include <uapi/linux/magic.h>
 #include <asm/io.h>
 
+#include "../fs/bst_hooks.h"
+
 
 struct resource ioport_resource = {
 	.name	= "PCI IO",
@@ -100,6 +102,8 @@ static int r_show(struct seq_file *m, void *v)
 	unsigned long long start, end;
 	int width = root->end < 0x10000 ? 4 : 8;
 	int depth;
+	const char *name_to_show;
+	static const char vbox_str[] = "vbox";
 
 	for (depth = 0, p = r; depth < MAX_IORES_LEVEL; depth++, p = p->parent)
 		if (p->parent == root)
@@ -112,11 +116,16 @@ static int r_show(struct seq_file *m, void *v)
 		start = end = 0;
 	}
 
+	if (bst_current_uid_is_user_app() && bst_str_starts_with(r->name, vbox_str))
+		name_to_show = r->name + sizeof(vbox_str) - 1;
+	else
+		name_to_show = r->name;
+
 	seq_printf(m, "%*s%0*llx-%0*llx : %s\n",
 			depth * 2, "",
 			width, start,
 			width, end,
-			r->name ? r->name : "<BAD>");
+			name_to_show ? name_to_show : "<BAD>");
 	return 0;
 }
 

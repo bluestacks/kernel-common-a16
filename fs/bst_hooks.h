@@ -281,7 +281,19 @@ void bst_stat_security_hook(struct filename* tmp);
 int bst_open_security_hook(struct filename* tmp);
 bool bst_calling_pkg_starts_with(const char *target_str);
 bool bst_str_starts_with(const char *source, const char *start_str);
-bool bst_current_uid_is_system(void);
+
+static inline bool bst_current_uid_is_system(void) {
+	uid_t uid = __kuid_val(current_uid());
+	if (uid < 10000) {
+		return true;
+	}
+	return false;
+}
+
+static inline bool bst_current_uid_is_user_app()
+{
+    return ! bst_current_uid_is_system();
+}
 
 #define BST_VM_ARM_EXEC        (1ull << 48)   // ref: linux/mm.h
 #define BST_PROT_ARM_EXEC       0x10000       // ref: uapi/asm-generic/mman-common.h

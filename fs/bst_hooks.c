@@ -2608,14 +2608,6 @@ bool bst_str_starts_with(const char *source, const char *start_str) {
 	return false;
 }
 
-bool bst_current_uid_is_system(void) {
-	kuid_t uid = current_uid();
-	if (uid.val < 10000) {
-		return true;
-	}
-	return false;
-}
-
 #ifdef CONFIG_PROC_FS
 static int strncmp_proc_path(const char * src, char* full_path, int prefix_len, int len)
 {

@@ -37,6 +37,11 @@
 
 #include <asm/ioctls.h>
 
+#include "../../bst_hooks.h"
+
+#define LILITHGAMES_ROK_CN	"com.lilithgames.rok.offical.cn"
+#define LILITHGAME_ROC_GP	"com.lilithgame.roc.gp"
+
 /*
  * An inotify watch requires allocating an inotify_inode_mark structure as
  * well as pinning the watched inode. Doubling the size of a VFS inode
@@ -675,10 +680,21 @@ static int do_inotify_init(int flags)
 {
 	struct fsnotify_group *group;
 	int ret;
+	const char *pkgname = NULL;
 
 	/* Check the IN_* constants for consistency.  */
 	BUILD_BUG_ON(IN_CLOEXEC != O_CLOEXEC);
 	BUILD_BUG_ON(IN_NONBLOCK != O_NONBLOCK);
+
+	pkgname = get_pkgname_from_cmdline(-1);
+	if (pkgname != NULL) {
+		if (!strncmp(pkgname, LILITHGAMES_ROK_CN, strlen(LILITHGAMES_ROK_CN)) ||
+			!strncmp(pkgname, LILITHGAME_ROC_GP, strlen(LILITHGAME_ROC_GP))) {
+			kfree(pkgname);
+			return -EINVAL;
+		}
+		kfree(pkgname);
+	}
 
 	if (flags & ~(IN_CLOEXEC | IN_NONBLOCK))
 		return -EINVAL;

@@ -434,6 +434,11 @@ int user_min_free_kbytes = -1;
 int watermark_boost_factor __read_mostly = 15000;
 int watermark_scale_factor = 10;
 
+int sysctl_pcd_enabled = 1;
+int sysctl_pcd_pclimit = 40;
+int sysctl_pcr_enabled = 0;
+int sysctl_pcr_pclimit = 40;
+
 static unsigned long nr_kernel_pages __initdata;
 static unsigned long nr_all_pages __initdata;
 static unsigned long dma_reserve __initdata;
@@ -5727,10 +5732,17 @@ EXPORT_SYMBOL_GPL(__alloc_pages_bulk);
 /*
  * This is the 'heart' of the zoned buddy allocator.
  */
+unsigned long reclaim_lock_flag;
 struct page *__alloc_pages(gfp_t gfp, unsigned int order, int preferred_nid,
 							nodemask_t *nodemask)
 {
 	struct page *page;
+	long sys_cache_kb = 0;
+	int cache_limit_kb = sysctl_pcr_pclimit * 1024;
+
+	#define RECLAIM_BIT 1
+	#define RECLAIM_ORDER 3
+
 	unsigned int alloc_flags = ALLOC_WMARK_LOW;
 	gfp_t alloc_gfp; /* The gfp_t that was actually used for allocation */
 	struct alloc_context ac = { };
@@ -5763,6 +5775,16 @@ struct page *__alloc_pages(gfp_t gfp, unsigned int order, int preferred_nid,
 	 * memory until all local zones are considered.
 	 */
 	alloc_flags |= alloc_flags_nofragment(ac.preferred_zoneref->zone, gfp);
+
+	if (sysctl_pcr_enabled) {
+		sys_cache_kb = global_node_page_state(NR_FILE_PAGES);
+		if ((gfp & __GFP_FS) && (sys_cache_kb > cache_limit_kb)) {
+			if (!test_and_set_bit(RECLAIM_BIT, &reclaim_lock_flag)) {
+				__perform_reclaim(gfp, RECLAIM_ORDER, &ac);
+				clear_bit_unlock(RECLAIM_BIT, &reclaim_lock_flag);
+			}
+		}
+	}
 
 	/* First allocation attempt */
 	page = get_page_from_freelist(alloc_gfp, order, alloc_flags, &ac);

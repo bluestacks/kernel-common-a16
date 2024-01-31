@@ -300,8 +300,28 @@ static inline void *detach_page_private(struct page *page)
 #ifdef CONFIG_NUMA
 extern struct page *__page_cache_alloc(gfp_t gfp);
 #else
+extern void drop_pagecache_sb(struct super_block *sb, void *unused);
 static inline struct page *__page_cache_alloc(gfp_t gfp)
 {
+	static int  page_cache_size = 0;
+
+	if (sysctl_pcd_enabled) {
+		// XXX: Restricting page cache size to sysctl_pcd_pclimit.
+		// sysctl_pcd_pclimit is in MB.
+		// Once limit is reached, we are freeing page cache,
+		// dentries and inodes if GFP_FS flag is set for
+		// this call.
+		int pages_in_mb = 1024 * 1024 / PAGE_SIZE;
+		int page_cache_limit = sysctl_pcd_pclimit * pages_in_mb;
+		if ((gfp & __GFP_FS) && page_cache_size > page_cache_limit) {
+			//printk(KERN_INFO "Purging the page cache %d\n", page_cache_size);
+			page_cache_size = 0;
+			iterate_supers(drop_pagecache_sb, NULL);
+			drop_slab();
+		}
+		page_cache_size++;
+	}
+
 	return alloc_pages(gfp, 0);
 }
 #endif

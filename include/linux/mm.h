@@ -2564,6 +2564,11 @@ extern int watermark_boost_factor;
 extern int watermark_scale_factor;
 extern bool arch_has_descending_max_zone_pfns(void);
 
+extern int sysctl_pcd_enabled;
+extern int sysctl_pcd_pclimit;
+extern int sysctl_pcr_enabled;
+extern int sysctl_pcr_pclimit;
+
 /* nommu.c */
 extern atomic_long_t mmap_pages_allocated;
 extern int nommu_shrink_inode_mappings(struct inode *, size_t, size_t);

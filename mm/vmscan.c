@@ -72,6 +72,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(mm_vmscan_direct_reclaim_end);
 #undef CREATE_TRACE_POINTS
 #include <trace/hooks/vmscan.h>
 
+extern unsigned long reclaim_lock_flag;
 struct scan_control {
 	/* How many pages shrink_list() should reclaim */
 	unsigned long nr_to_reclaim;
@@ -2291,8 +2292,11 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 
 	__mod_node_page_state(pgdat, NR_ISOLATED_ANON + file, nr_taken);
 	item = current_is_kswapd() ? PGSCAN_KSWAPD : PGSCAN_DIRECT;
-	if (!cgroup_reclaim(sc))
-		__count_vm_events(item, nr_scanned);
+	if (!cgroup_reclaim(sc)) {
+        if (!reclaim_lock_flag && item == PGSCAN_DIRECT) {
+		   __count_vm_events(item, nr_scanned);
+        }
+     }
 	__count_memcg_events(lruvec_memcg(lruvec), item, nr_scanned);
 	__count_vm_events(PGSCAN_ANON + file, nr_scanned);
 

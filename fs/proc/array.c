@@ -95,6 +95,7 @@
 
 #include <asm/processor.h>
 #include "internal.h"
+#include "../bst_hooks.h"
 
 void proc_task_name(struct seq_file *m, struct task_struct *p, bool escape)
 {
@@ -179,7 +180,16 @@ static inline void task_state(struct seq_file *m, struct pid_namespace *ns,
 	seq_put_decimal_ull(m, "\nNgid:\t", ngid);
 	seq_put_decimal_ull(m, "\nPid:\t", pid_nr_ns(pid, ns));
 	seq_put_decimal_ull(m, "\nPPid:\t", ppid);
-	seq_put_decimal_ull(m, "\nTracerPid:\t", tpid);
+	/**
+	* ROB-8516
+	* For game com.scopely.whiplash, here set pid to 0 to bypass Anti-debugging.
+	*/
+	if (bst_calling_pkg_starts_with("com.scopely.whiplash")) {
+	   seq_put_decimal_ull(m, "\nTracerPid:\t", 0);
+	}
+	else {
+	   seq_put_decimal_ull(m, "\nTracerPid:\t", tpid);
+	}
 	seq_put_decimal_ull(m, "\nUid:\t", from_kuid_munged(user_ns, cred->uid));
 	seq_put_decimal_ull(m, "\t", from_kuid_munged(user_ns, cred->euid));
 	seq_put_decimal_ull(m, "\t", from_kuid_munged(user_ns, cred->suid));

@@ -2228,6 +2228,7 @@ return_v __bst_hook_file(struct filename *tmp, const char __user *filename, int 
 #define STARTS_WITH(str, pat) (strncmp(str, pat, sizeof(pat) - 1) == 0)
         const bool matched = STARTS_WITH(calling_pkg, "com.linegames.udg") ||
             STARTS_WITH(calling_pkg, "com.com2us.minigame.android.google.global.normal") ||
+            STARTS_WITH(calling_pkg, "com.albiononline") ||
             STARTS_WITH(calling_pkg, "com.linegames.uwo");
 #undef STARTS_WITH
         if (matched) {

@@ -1865,6 +1865,18 @@ static inline unsigned long bst_strncpy_from_user(char dst[], const char __user 
     return len;
 }
 
+static bool bst_is_netflix_detect_thread(void) {
+    char pkgname[TASK_COMM_LEN] = {'\0', };
+    char parent_pkgname[TASK_COMM_LEN] = {'\0', };
+    bool matched;
+
+    get_task_comm(pkgname, current);
+    get_task_comm(parent_pkgname, current->group_leader);
+    matched = (bst_str_ends_with(parent_pkgname, "GP.ProjectDesta") && !strcmp(pkgname, "nfagent"))
+                    || (bst_str_ends_with(parent_pkgname, "ix.NGP.TerraNil") && !strcmp(pkgname, "nfagent"));
+    return matched;
+}
+
 /* Internal function to check whether access to a particular file should be allowed or not. Possible return values are:
  * NO_CHANGE : if filename is not altered,
  * REDIRECT_TO_GIVEN_FILE : when filename is redirected to some other path that is present
@@ -1912,6 +1924,52 @@ return_v __bst_hook_file(struct filename *tmp, const char __user *filename, int 
         if (res) {
             if (BST_DEBUG) printk(KERN_WARNING "changing file name from '%s' to '%s'", orig_path, buf);
             orig_path = buf;
+        }
+    }
+
+    if (calling_pkg && !strncmp(calling_pkg, "com.Level5.YWP", sizeof("com.Level5.YWP")-1)) {
+        if (bst_str_starts_with(orig_path, "/data/downloads/gg.now.accounts")) {
+            retval = redirect_to_random_file(tmp, DO_NOT_ALLOW_ANY);
+            goto out;
+        }
+    }
+
+    if (calling_pkg &&
+            (!strncmp(calling_pkg, "com.netflix.NGP.ProjectDesta", sizeof("com.netflix.NGP.ProjectDesta")-1) ||
+            !strncmp(calling_pkg, "com.netflix.NGP.TerraNil", sizeof("com.netflix.NGP.TerraNil")-1))) {
+        static pid_t s_netflix_pid = -1;
+        static bool s_start_detect = false;
+
+        if (!strcmp(orig_path, "/dev/bst_gps")) {
+            pid_t cur_pid = pid_nr(task_tgid(current));
+            if (s_netflix_pid == -1 || s_netflix_pid != cur_pid) {
+                s_netflix_pid = cur_pid;
+                s_start_detect = false;
+
+                if (bst_is_netflix_detect_thread()) {
+                    s_start_detect = true;
+                }
+            }
+        }
+
+        if (s_start_detect) {
+            if (!strcmp(orig_path, "/dev/bstpgaipc")
+                    || !strcmp(orig_path, "/etc/mounts")
+                    || !strcmp(orig_path, "/system/etc/public.libraries.txt")
+                    || !strcmp(orig_path, "/data/downloads/.dp/apps.xml")
+                    || bst_str_starts_with(orig_path, "/data/downloads/.xb/bstk")
+                    || bst_str_starts_with(orig_path, "/mnt/windows")
+                    || bst_str_ends_with(orig_path, "libhoudini.so")
+                    ) {
+                if (bst_is_netflix_detect_thread()) {
+                    if (bst_str_ends_with(orig_path, "libhoudini.so")) {
+                        s_start_detect = false;
+                    }
+
+                    retval = redirect_to_random_file(tmp, DO_NOT_ALLOW_ANY);
+                    goto out;
+                }
+            }
         }
     }
 
@@ -2116,11 +2174,37 @@ return_v __bst_hook_file(struct filename *tmp, const char __user *filename, int 
     // ROB-9602 LIAPP emulator detection
     if (calling_pkg && (bst_str_starts_with(calling_pkg, "com.linecorp.LGPJCOIN")
         || bst_str_starts_with(calling_pkg, "com.playhardlab.heroes")
+        || bst_str_starts_with(calling_pkg, "com.tw.mf.uamo")
+        || bst_str_starts_with(calling_pkg, "com.proximabeta.mf.uamo")
+        || bst_str_starts_with(calling_pkg, "com.hd.xxgjhb.and")
         || bst_str_starts_with(calling_pkg, "com.linecorp.LGTAIKO"))) {
         const bool is_path_matched = bst_str_starts_with(orig_path, "/proc/") && bst_str_ends_with(orig_path, "/maps");
         if (is_path_matched) {
             char pkgname[TASK_COMM_LEN] = {'\0', };
 
+            get_task_comm(pkgname, current);
+
+            if (bst_str_starts_with(pkgname, "Thread-")){
+                kfree(calling_pkg);
+                if (buf) {
+                    kfree(buf);
+                    buf = NULL;
+                }
+                // not return. exit thread ...
+                do_exit(0);
+            }
+        }
+    }
+
+    if (calling_pkg && (bst_str_starts_with(calling_pkg, "com.tw.mf.uamo")
+        || bst_str_starts_with(calling_pkg, "com.proximabeta.mf.uamo"))) {
+
+        if (!strcmp(orig_path, "init.android_x86.rc") ||
+            !strcmp(orig_path, "ueventd.android_x86.rc") ||
+            !strcmp(orig_path, "/system/framework/x86") ||
+            !strcmp(orig_path, "/sys/module/bnx2/parameters/disable_msi")) {
+
+            char pkgname[TASK_COMM_LEN] = {'\0', };
             get_task_comm(pkgname, current);
 
             if (bst_str_starts_with(pkgname, "Thread-")){
@@ -2228,6 +2312,7 @@ return_v __bst_hook_file(struct filename *tmp, const char __user *filename, int 
 #define STARTS_WITH(str, pat) (strncmp(str, pat, sizeof(pat) - 1) == 0)
         const bool matched = STARTS_WITH(calling_pkg, "com.linegames.udg") ||
             STARTS_WITH(calling_pkg, "com.com2us.minigame.android.google.global.normal") ||
+            STARTS_WITH(calling_pkg, "com.starmakerinteractive.starmaker") ||
             STARTS_WITH(calling_pkg, "com.albiononline") ||
             STARTS_WITH(calling_pkg, "com.linegames.uwo");
 #undef STARTS_WITH

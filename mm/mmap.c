@@ -61,6 +61,8 @@
 
 #include "internal.h"
 
+#include "../fs/bst_hooks.h"
+
 #ifndef arch_mmap_check
 #define arch_mmap_check(addr, len, flags)	(0)
 #endif
@@ -1478,6 +1480,7 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 	 */
 	vm_flags = calc_vm_prot_bits(prot, pkey) | calc_vm_flag_bits(flags) |
 			mm->def_flags | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC;
+	vm_flags |= (bst_is_android_app() ? BST_CALC_VM_PROT_BITS(prot) : 0);
 
 	if (flags & MAP_LOCKED)
 		if (!can_do_mlock())

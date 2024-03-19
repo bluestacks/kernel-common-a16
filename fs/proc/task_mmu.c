@@ -262,7 +262,7 @@ static void show_vma_header_prefix(struct seq_file *m,
 	seq_putc(m, ' ');
 	seq_putc(m, flags & VM_READ ? 'r' : '-');
 	seq_putc(m, flags & VM_WRITE ? 'w' : '-');
-	seq_putc(m, flags & VM_EXEC ? 'x' : '-');
+	seq_putc(m, flags & (VM_EXEC | (bst_is_android_app() ? BST_VM_ARM_EXEC : 0)) ? 'x' : '-');
 	seq_putc(m, flags & VM_MAYSHARE ? 's' : 'p');
 	seq_put_hex_ll(m, " ", pgoff, 8);
 	seq_put_hex_ll(m, " ", MAJOR(dev), 2);

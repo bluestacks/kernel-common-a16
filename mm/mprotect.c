@@ -35,6 +35,8 @@
 
 #include "internal.h"
 
+#include "../fs/bst_hooks.h"
+
 static unsigned long change_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 		unsigned long addr, unsigned long end, pgprot_t newprot,
 		unsigned long cp_flags)
@@ -529,6 +531,11 @@ static int do_mprotect_pkey(unsigned long start, size_t len,
 	const bool rier = (current->personality & READ_IMPLIES_EXEC) &&
 				(prot & PROT_READ);
 
+	const bool is_android_app       = bst_is_android_app();
+	const long bst_vm_arm_exec_flag = is_android_app ? BST_VM_ARM_EXEC : 0;
+	const long bst_vm_prot_flag     = is_android_app ? BST_CALC_VM_PROT_BITS(prot) : 0;
+	if (is_android_app)       prot &= ~BST_PROT_ARM_EXEC;
+
 	start = untagged_addr(start);
 
 	prot &= ~(PROT_GROWSDOWN|PROT_GROWSUP);
@@ -602,10 +609,12 @@ static int do_mprotect_pkey(unsigned long start, size_t len,
 		 */
 		mask_off_old_flags = VM_READ | VM_WRITE | VM_EXEC |
 					VM_FLAGS_CLEAR;
+		mask_off_old_flags |=  bst_vm_arm_exec_flag;
 
 		new_vma_pkey = arch_override_mprotect_pkey(vma, prot, pkey);
 		newflags = calc_vm_prot_bits(prot, new_vma_pkey);
 		newflags |= (vma->vm_flags & ~mask_off_old_flags);
+		newflags |= ((prot & PROT_EXEC) ? 0 : bst_vm_prot_flag);
 
 		/* newflags >> 4 shift VM_MAY% in place of VM_% */
 		if ((newflags & ~(newflags >> 4)) & VM_ACCESS_FLAGS) {

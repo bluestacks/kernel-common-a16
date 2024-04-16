@@ -105,14 +105,14 @@ static char *realpath(const char * __restrict path, char * __restrict resolved)
         // returning as all path should start from /, otherwise we are not sure what app is trying
         // to open, so in that case we do not evaluate realpath.
         // printk(KERN_WARNING "%d error while resolving realpath %d", __LINE__, errno);
-	ret = NULL;
-	goto out;
+        ret = NULL;
+        goto out;
     }
-    if (left_len >= sizeof(left) || resolved_len >= PATH_MAX) {
+    if (left_len >= buf_len || resolved_len >= PATH_MAX) {
         errno = ENAMETOOLONG;
         printk(KERN_WARNING "%d error while resolving realpath %d", __LINE__, errno);
-	ret = NULL;
-	goto out;
+        ret = NULL;
+        goto out;
     }
 
     /*
@@ -125,11 +125,11 @@ static char *realpath(const char * __restrict path, char * __restrict resolved)
          */
         p = strchr(left, '/');
         s = p ? p : left + left_len;
-        if (s - left >= sizeof(next_token)) {
+        if (s - left >= buf_len) {
             errno = ENAMETOOLONG;
             printk(KERN_WARNING "%d error while resolving realpath %d", __LINE__, errno);
-	    ret = NULL;
-	    goto out;
+            ret = NULL;
+            goto out;
         }
         memcpy(next_token, left, s - left);
         next_token[s - left] = '\0';
@@ -140,8 +140,8 @@ static char *realpath(const char * __restrict path, char * __restrict resolved)
             if (resolved_len + 1 >= PATH_MAX) {
                 errno = ENAMETOOLONG;
                 printk(KERN_WARNING "%d error while resolving realpath %d", __LINE__, errno);
-		ret = NULL;
-		goto out;
+                ret = NULL;
+                goto out;
             }
             resolved[resolved_len++] = '/';
             resolved[resolved_len] = '\0';
@@ -173,9 +173,9 @@ static char *realpath(const char * __restrict path, char * __restrict resolved)
         if (resolved_len >= PATH_MAX) {
             errno = ENAMETOOLONG;
             printk(KERN_WARNING "%d error while resolving realpath %d", __LINE__, errno);
-            	ret = NULL;
-		goto out;
-	}
+            ret = NULL;
+            goto out;
+        }
     }
 
     /*

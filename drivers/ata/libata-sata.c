@@ -233,8 +233,6 @@ EXPORT_SYMBOL_GPL(ata_tf_from_fis);
 int sata_link_debounce(struct ata_link *link, const unsigned long *params,
 		       unsigned long deadline)
 {
-	unsigned long interval = params[0];
-	unsigned long duration = params[1];
 	unsigned long last_jiffies, t;
 	u32 last, cur;
 	int rc;
@@ -251,19 +249,25 @@ int sata_link_debounce(struct ata_link *link, const unsigned long *params,
 	last_jiffies = jiffies;
 
 	while (1) {
-		ata_msleep(link->ap, interval);
 		if ((rc = sata_scr_read(link, SCR_STATUS, &cur)))
 			return rc;
 		cur &= 0xf;
 
+		/*
+		 * 0h No device detected and Phy communication not established
+		 * 1h Device presence detected but Phy communication not established
+		 * 3h Device presence detected and Phy communication established
+		 * 4h Phy in offline mode as a result of the interface being
+		 *    disabled or running in a BIST loopback mode
+		 */
 		/* DET stable? */
 		if (cur == last) {
 			if (cur == 1 && time_before(jiffies, deadline))
 				continue;
-			if (time_after(jiffies,
-				       ata_deadline(last_jiffies, duration)))
-				return 0;
-			continue;
+			/*
+			 * Our device/phy is virtual, so the debounce is simply skipped if DET is NOT equal to 1h.
+			 */
+			return 0;
 		}
 
 		/* unstable, start over */

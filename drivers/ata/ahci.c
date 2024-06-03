@@ -124,6 +124,8 @@ static const struct ata_port_info ahci_port_info[] = {
 	/* by features */
 	[board_ahci] = {
 		.flags		= AHCI_FLAG_COMMON,
+		/* Our phy is virtual, so set ATA_LFLAG_NO_DB_DELAY */
+		.link_flags	= ATA_LFLAG_NO_DB_DELAY,
 		.pio_mask	= ATA_PIO4,
 		.udma_mask	= ATA_UDMA6,
 		.port_ops	= &ahci_ops,

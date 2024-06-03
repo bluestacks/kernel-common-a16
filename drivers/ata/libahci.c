@@ -1220,10 +1220,16 @@ static void ahci_port_init(struct device *dev, struct ata_port *ap,
 	writel(tmp, port_mmio + PORT_SCR_ERR);
 
 	/* clear port IRQ */
+#ifndef CONFIG_SATA_AHCI_BST
 	tmp = readl(port_mmio + PORT_IRQ_STAT);
+#else
+	tmp = readl(port_mmio + PORT_VENDOR_SPECIFIC_IRQ_RW);
+#endif /* CONFIG_SATA_AHCI_BST */
 	VPRINTK("PORT_IRQ_STAT 0x%x\n", tmp);
+#ifndef CONFIG_SATA_AHCI_BST
 	if (tmp)
 		writel(tmp, port_mmio + PORT_IRQ_STAT);
+#endif /* CONFIG_SATA_AHCI_BST */
 
 	writel(1 << port_no, mmio + HOST_IRQ_STAT);
 
@@ -1894,8 +1900,12 @@ static void ahci_port_intr(struct ata_port *ap)
 	void __iomem *port_mmio = ahci_port_base(ap);
 	u32 status;
 
+#ifndef CONFIG_SATA_AHCI_BST
 	status = readl(port_mmio + PORT_IRQ_STAT);
 	writel(status, port_mmio + PORT_IRQ_STAT);
+#else
+	status = readl(port_mmio + PORT_VENDOR_SPECIFIC_IRQ_RW);
+#endif /* CONFIG_SATA_AHCI_BST */
 
 	ahci_handle_port_interrupt(ap, port_mmio, status);
 }
@@ -1908,8 +1918,13 @@ static irqreturn_t ahci_multi_irqs_intr_hard(int irq, void *dev_instance)
 
 	VPRINTK("ENTER\n");
 
+#ifndef CONFIG_SATA_AHCI_BST
 	status = readl(port_mmio + PORT_IRQ_STAT);
 	writel(status, port_mmio + PORT_IRQ_STAT);
+#else
+	/* The 1st vendor specific register is customized to read port IRQ status and clear it. */
+	status = readl(port_mmio + PORT_VENDOR_SPECIFIC_IRQ_RW);
+#endif /* CONFIG_SATA_AHCI_BST */
 
 	spin_lock(ap->lock);
 	ahci_handle_port_interrupt(ap, port_mmio, status);
@@ -1995,6 +2010,10 @@ unsigned int ahci_qc_issue(struct ata_queued_cmd *qc)
 	struct ata_port *ap = qc->ap;
 	void __iomem *port_mmio = ahci_port_base(ap);
 	struct ahci_port_priv *pp = ap->private_data;
+#ifdef CONFIG_SATA_AHCI_BST
+	bool is_ncq = ata_is_ncq(qc->tf.protocol);
+	bool is_fbs = pp->fbs_enabled && pp->fbs_last_dev != qc->dev->link->pmp;
+#endif /* CONFIG_SATA_AHCI_BST */
 
 	/* Keep track of the currently active link.  It will be used
 	 * in completion path to determine whether NCQ phase is in
@@ -2002,6 +2021,7 @@ unsigned int ahci_qc_issue(struct ata_queued_cmd *qc)
 	 */
 	pp->active_link = qc->dev->link;
 
+#ifndef CONFIG_SATA_AHCI_BST
 	if (ata_is_ncq(qc->tf.protocol))
 		writel(1 << qc->hw_tag, port_mmio + PORT_SCR_ACT);
 
@@ -2014,6 +2034,24 @@ unsigned int ahci_qc_issue(struct ata_queued_cmd *qc)
 	}
 
 	writel(1 << qc->hw_tag, port_mmio + PORT_CMD_ISSUE);
+#else
+	/* Customize 2nd vendor specific register to merge acess operation of ACT and CMD registers */
+	if (!is_fbs && is_ncq)
+		writel(1 << qc->hw_tag, port_mmio + PORT_VENDOR_SPECIFIC_CMD_ISSUE);
+	else {
+		if (is_ncq)
+			writel(1 << qc->hw_tag, port_mmio + PORT_SCR_ACT);
+		if (is_fbs) {
+			u32 fbs = readl(port_mmio + PORT_FBS);
+			fbs &= ~(PORT_FBS_DEV_MASK | PORT_FBS_DEC);
+			fbs |= qc->dev->link->pmp << PORT_FBS_DEV_OFFSET;
+			writel(fbs, port_mmio + PORT_FBS);
+			pp->fbs_last_dev = qc->dev->link->pmp;
+		}
+
+		writel(1 << qc->hw_tag, port_mmio + PORT_CMD_ISSUE);
+	}
+#endif /* CONFIG_SATA_AHCI_BST */
 
 	ahci_sw_activity(qc->dev->link);
 
@@ -2062,8 +2100,12 @@ static void ahci_thaw(struct ata_port *ap)
 	struct ahci_port_priv *pp = ap->private_data;
 
 	/* clear IRQ */
+#ifndef CONFIG_SATA_AHCI_BST
 	tmp = readl(port_mmio + PORT_IRQ_STAT);
 	writel(tmp, port_mmio + PORT_IRQ_STAT);
+#else
+	tmp = readl(port_mmio + PORT_VENDOR_SPECIFIC_IRQ_RW);
+#endif /* CONFIG_SATA_AHCI_BST */
 	writel(1 << ap->port_no, mmio + HOST_IRQ_STAT);
 
 	/* turn IRQ back on */

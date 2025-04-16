@@ -11,6 +11,8 @@
 #include <linux/compat.h>
 #include "internal.h"
 
+#include "bst_hooks.h"
+
 static int flags_by_mnt(int mnt_flags)
 {
 	int flags = 0;
@@ -99,6 +101,10 @@ int user_statfs(const char __user *pathname, struct kstatfs *st)
 	struct path path;
 	int error;
 	unsigned int lookup_flags = LOOKUP_FOLLOW|LOOKUP_AUTOMOUNT;
+
+	error = bst_hook_statfs(pathname);
+	if (error < 0)
+		return error;
 retry:
 	error = user_path_at(AT_FDCWD, pathname, lookup_flags, &path);
 	if (!error) {

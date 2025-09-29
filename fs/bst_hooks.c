@@ -2177,6 +2177,7 @@ return_v __bst_hook_file(struct filename *tmp, const char __user *filename, int 
         || bst_str_starts_with(calling_pkg, "com.tw.mf.uamo")
         || bst_str_starts_with(calling_pkg, "com.proximabeta.mf.uamo")
         || bst_str_starts_with(calling_pkg, "com.hd.xxgjhb.and")
+        || bst_str_starts_with(calling_pkg, "com.com2usholdings.arestw.android.google.tw.normal")
         || bst_str_starts_with(calling_pkg, "com.linecorp.LGTAIKO"))) {
         const bool is_path_matched = bst_str_starts_with(orig_path, "/proc/") && bst_str_ends_with(orig_path, "/maps");
         if (is_path_matched) {

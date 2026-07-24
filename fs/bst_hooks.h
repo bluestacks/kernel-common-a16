@@ -290,7 +290,7 @@ static inline bool bst_current_uid_is_system(void) {
 	return false;
 }
 
-static inline bool bst_current_uid_is_user_app()
+static inline bool bst_current_uid_is_user_app(void)
 {
     return ! bst_current_uid_is_system();
 }

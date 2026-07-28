@@ -880,7 +880,7 @@ void __init setup_arch(char **cmdline_p)
 	bss_resource.start = __pa_symbol(__bss_start);
 	bss_resource.end = __pa_symbol(__bss_stop)-1;
 
-	strcpy(boot_command_line, "earlyprintk=serial,keep idle=nomwait vmalloc=160M nosmap nosmep quiet bstandroid=baklava64");
+	strcpy(boot_command_line, "earlyprintk=serial,keep idle=nomwait vmalloc=160M nosmap nosmep quiet bstandroid=tiramisu64");
 
 #ifdef CONFIG_CMDLINE_BOOL
 #ifdef CONFIG_CMDLINE_OVERRIDE

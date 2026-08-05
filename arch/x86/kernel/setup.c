@@ -755,6 +755,9 @@ void __init setup_arch(char **cmdline_p)
 	boot_cpu_data.x86_phys_bits = MAX_PHYSMEM_BITS;
 #endif
 
+	strcpy(boot_command_line,
+	       "earlyprintk=serial,keep console=ttyS0 idle=nomwait vmalloc=160M nosmap nosmep nofsgsbase bstandroid=baklava64");
+
 #ifdef CONFIG_CMDLINE_BOOL
 #ifdef CONFIG_CMDLINE_OVERRIDE
 	strscpy(boot_command_line, builtin_cmdline, COMMAND_LINE_SIZE);

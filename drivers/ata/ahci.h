@@ -127,6 +127,10 @@ enum {
 	PORT_SCR_NTF		= 0x3c, /* SATA phy register: SNotification */
 	PORT_FBS		= 0x40, /* FIS-based Switching */
 	PORT_DEVSLP		= 0x44, /* device sleep */
+#ifdef CONFIG_SATA_AHCI_BST
+	PORT_VENDOR_SPECIFIC_IRQ_RW	= 0x70,
+	PORT_VENDOR_SPECIFIC_CMD_ISSUE	= 0x74,
+#endif
 
 	/* PORT_IRQ_{STAT,MASK} bits */
 	PORT_IRQ_COLD_PRES	= BIT(31), /* cold presence detect */

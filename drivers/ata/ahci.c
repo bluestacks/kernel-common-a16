@@ -49,6 +49,7 @@ enum board_ids {
 	/* board IDs by feature in alphabetical order */
 	board_ahci,
 	board_ahci_43bit_dma,
+	board_ahci_bst,
 	board_ahci_ign_iferr,
 	board_ahci_no_debounce_delay,
 	board_ahci_no_msi,
@@ -135,6 +136,14 @@ static const struct ata_port_info ahci_port_info[] = {
 	[board_ahci_43bit_dma] = {
 		AHCI_HFLAGS	(AHCI_HFLAG_43BIT_ONLY),
 		.flags		= AHCI_FLAG_COMMON,
+		.pio_mask	= ATA_PIO4,
+		.udma_mask	= ATA_UDMA6,
+		.port_ops	= &ahci_ops,
+	},
+	[board_ahci_bst] = {
+		AHCI_HFLAGS(AHCI_HFLAG_INTEL_PCS_QUIRK),
+		.flags		= AHCI_FLAG_COMMON,
+		.link_flags	= ATA_LFLAG_NO_DEBOUNCE_DELAY,
 		.pio_mask	= ATA_PIO4,
 		.udma_mask	= ATA_UDMA6,
 		.port_ops	= &ahci_ops,
@@ -293,7 +302,7 @@ static const struct pci_device_id ahci_pci_tbl[] = {
 	{ PCI_VDEVICE(INTEL, 0x2821), board_ahci_pcs_quirk }, /* ICH8 */
 	{ PCI_VDEVICE(INTEL, 0x2822), board_ahci_pcs_quirk_no_sntf }, /* ICH8/Lewisburg RAID*/
 	{ PCI_VDEVICE(INTEL, 0x2824), board_ahci_pcs_quirk }, /* ICH8 */
-	{ PCI_VDEVICE(INTEL, 0x2829), board_ahci_pcs_quirk }, /* ICH8M */
+	{ PCI_VDEVICE(INTEL, 0x2829), board_ahci_bst }, /* ICH8M */
 	{ PCI_VDEVICE(INTEL, 0x282a), board_ahci_pcs_quirk }, /* ICH8M */
 	{ PCI_VDEVICE(INTEL, 0x2922), board_ahci_pcs_quirk }, /* ICH9 */
 	{ PCI_VDEVICE(INTEL, 0x2923), board_ahci_pcs_quirk }, /* ICH9 */

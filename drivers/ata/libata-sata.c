@@ -253,7 +253,8 @@ int sata_link_debounce(struct ata_link *link, const unsigned int *params,
 	last_jiffies = jiffies;
 
 	while (1) {
-		ata_msleep(link->ap, interval);
+		if (!(link->flags & ATA_LFLAG_NO_DEBOUNCE_DELAY))
+			ata_msleep(link->ap, interval);
 		if ((rc = sata_scr_read(link, SCR_STATUS, &cur)))
 			return rc;
 		cur &= 0xf;
@@ -262,6 +263,8 @@ int sata_link_debounce(struct ata_link *link, const unsigned int *params,
 		if (cur == last) {
 			if (cur == 1 && time_before(jiffies, deadline))
 				continue;
+			if (link->flags & ATA_LFLAG_NO_DEBOUNCE_DELAY)
+				return 0;
 			if (time_after(jiffies,
 				       ata_deadline(last_jiffies, duration)))
 				return 0;

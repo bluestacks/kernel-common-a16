@@ -1044,6 +1044,21 @@ struct folio *filemap_alloc_folio_noprof(gfp_t gfp, unsigned int order)
 	int n;
 	struct folio *folio;
 
+	/* BS-A16: pcd - restrict page cache size to sysctl_pcd_pclimit MB (from
+	 * 5.15 e767c6f7); see the matching hook in include/linux/pagemap.h. */
+	if (sysctl_pcd_enabled) {
+		static int page_cache_size;
+		int pages_in_mb = 1024 * 1024 / PAGE_SIZE;
+		int page_cache_limit = sysctl_pcd_pclimit * pages_in_mb;
+
+		if ((gfp & __GFP_FS) && page_cache_size > page_cache_limit) {
+			page_cache_size = 0;
+			iterate_supers(drop_pagecache_sb, NULL);
+			drop_slab();
+		}
+		page_cache_size++;
+	}
+
 	if (cpuset_do_page_mem_spread()) {
 		unsigned int cpuset_mems_cookie;
 		do {

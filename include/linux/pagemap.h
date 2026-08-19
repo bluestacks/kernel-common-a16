@@ -669,21 +669,13 @@ static inline void *detach_page_private(struct page *page)
 #ifdef CONFIG_NUMA
 struct folio *filemap_alloc_folio_noprof(gfp_t gfp, unsigned int order);
 #else
+extern void drop_pagecache_sb(struct super_block *sb, void *unused);
 static inline struct folio *filemap_alloc_folio_noprof(gfp_t gfp, unsigned int order)
 {
-	return folio_alloc_noprof(gfp, order);
-}
-#endif
-
-#define filemap_alloc_folio(...)				\
-	alloc_hooks(filemap_alloc_folio_noprof(__VA_ARGS__))
-
-extern void drop_pagecache_sb(struct super_block *sb, void *unused);
-static inline struct page *__page_cache_alloc(gfp_t gfp)
-{
-	/* BS-A16: pcd - restrict page cache size to sysctl_pcd_pclimit MB;
-	 * once the limit is reached, free page cache/dentries/inodes for
-	 * __GFP_FS allocations (from 5.15 e767c6f7). */
+	/* BS-A16: pcd - restrict page cache size to sysctl_pcd_pclimit MB; once
+	 * the limit is reached, free page cache/dentries/inodes for __GFP_FS
+	 * allocations (from 5.15 e767c6f7; hooked here because 6.12 page cache
+	 * allocs no longer go through __page_cache_alloc). */
 	static int page_cache_size = 0;
 
 	if (sysctl_pcd_enabled) {
@@ -697,6 +689,15 @@ static inline struct page *__page_cache_alloc(gfp_t gfp)
 		page_cache_size++;
 	}
 
+	return folio_alloc_noprof(gfp, order);
+}
+#endif
+
+#define filemap_alloc_folio(...)				\
+	alloc_hooks(filemap_alloc_folio_noprof(__VA_ARGS__))
+
+static inline struct page *__page_cache_alloc(gfp_t gfp)
+{
 	return &filemap_alloc_folio(gfp, 0)->page;
 }
 

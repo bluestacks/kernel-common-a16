@@ -555,7 +555,7 @@ static void __input_release_device(struct input_handle *handle)
 	if (grabber == handle) {
 		rcu_assign_pointer(dev->grab, NULL);
 		/* Make sure input_pass_values() notices that grab is gone */
-		synchronize_rcu();
+		synchronize_rcu_expedited();	/* BS-A16: boot time (5.15 6e3597f) */
 
 		list_for_each_entry(handle, &dev->h_list, d_node)
 			if (handle->open && handle->handler->start)
@@ -1180,7 +1180,25 @@ static int input_devices_seq_show(struct seq_file *seq, void *v)
 	seq_printf(seq, "I: Bus=%04x Vendor=%04x Product=%04x Version=%04x\n",
 		   dev->id.bustype, dev->id.vendor, dev->id.product, dev->id.version);
 
-	seq_printf(seq, "N: Name=\"%s\"\n", dev->name ? dev->name : "");
+	/* BS-A16: strip the BlueStacks/VirtualBox prefix from device names for
+	 * non-system readers to prevent emulator detection (from 5.15 c85a1545;
+	 * the 5.15 fs/bst_hooks.h helpers are inlined here). */
+	{
+		static const char bst_str[] = "BlueStacks";
+		static const char vbox_str[] = "VirtualBox";
+		const char *name_to_show = dev->name;
+
+		if (__kuid_val(current_uid()) >= 10000 && name_to_show) {
+			size_t bst_len = strlen(bst_str);
+			size_t vbox_len = strlen(vbox_str);
+
+			if (strncmp(name_to_show, bst_str, bst_len) == 0)
+				name_to_show += bst_len;
+			else if (strncmp(name_to_show, vbox_str, vbox_len) == 0)
+				name_to_show += vbox_len;
+		}
+		seq_printf(seq, "N: Name=\"%s\"\n", name_to_show ? name_to_show : "");
+	}
 	seq_printf(seq, "P: Phys=%s\n", dev->phys ? dev->phys : "");
 	seq_printf(seq, "S: Sysfs=%s\n", path ? path : "");
 	seq_printf(seq, "U: Uniq=%s\n", dev->uniq ? dev->uniq : "");

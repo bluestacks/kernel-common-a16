@@ -1892,7 +1892,7 @@ int rebind_subsystems(struct cgroup_root *dst_root, u16 ss_mask)
 
 		if (ss->css_rstat_flush) {
 			list_del_rcu(&css->rstat_css_node);
-			synchronize_rcu();
+			synchronize_rcu_expedited();	/* BS-A16: boot time (5.15 6e3597f) */
 			list_add_rcu(&css->rstat_css_node,
 				     &dcgrp->rstat_css_list);
 		}

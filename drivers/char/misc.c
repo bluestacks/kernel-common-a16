@@ -102,6 +102,18 @@ static int misc_seq_show(struct seq_file *seq, void *v)
 {
 	const struct miscdevice *p = list_entry(v, struct miscdevice, list);
 
+	/* BS-A16: not populating bst and vbox specific entries in /proc/misc
+	 * for user apps to prevent emulator detection (from 5.15 1ce59d49). */
+	{
+		kuid_t uid = current_uid();
+		if (uid.val >= 10000) {
+			if (p->name && (strstr(p->name, "bst") != NULL ||
+				strstr(p->name, "vbox") != NULL)) {
+				return 0;
+			}
+		}
+	}
+
 	seq_printf(seq, "%3i %s\n", p->minor, p->name ? p->name : "");
 	return 0;
 }

@@ -778,7 +778,10 @@ noinline int slow_avc_audit(u32 ssid, u32 tsid, u16 tclass,
 
 	a->selinux_audit_data = &sad;
 
-	common_lsm_audit(a, avc_audit_pre_callback, avc_audit_post_callback);
+	/* BS-A16: silence kernel selinux audit (from 5.15 95195fd0) */
+	(void)avc_audit_pre_callback;
+	(void)avc_audit_post_callback;
+	/* common_lsm_audit(a, avc_audit_pre_callback, avc_audit_post_callback); */
 	return 0;
 }
 

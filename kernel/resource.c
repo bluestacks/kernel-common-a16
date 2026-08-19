@@ -116,11 +116,23 @@ static int r_show(struct seq_file *m, void *v)
 		start = end = 0;
 	}
 
-	seq_printf(m, "%*s%0*llx-%0*llx : %s\n",
-			depth * 2, "",
-			width, start,
-			width, end,
-			r->name ? r->name : "<BAD>");
+	/* BS-A16: strip the vbox prefix from iomem resource names for user
+	 * apps to prevent emulator detection (from 5.15 4ddcf7c4; the 5.15
+	 * fs/bst_hooks.h helpers are inlined here). */
+	{
+		static const char vbox_str[] = "vbox";
+		const char *name_to_show = r->name;
+
+		if (__kuid_val(current_uid()) >= 10000 && name_to_show &&
+		    strncmp(name_to_show, vbox_str, sizeof(vbox_str) - 1) == 0)
+			name_to_show += sizeof(vbox_str) - 1;
+
+		seq_printf(m, "%*s%0*llx-%0*llx : %s\n",
+				depth * 2, "",
+				width, start,
+				width, end,
+				name_to_show ? name_to_show : "<BAD>");
+	}
 	return 0;
 }
 

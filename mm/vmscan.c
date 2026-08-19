@@ -2101,8 +2101,14 @@ static unsigned long shrink_inactive_list(unsigned long nr_to_scan,
 
 	__mod_node_page_state(pgdat, NR_ISOLATED_ANON + file, nr_taken);
 	item = PGSCAN_KSWAPD + reclaimer_offset();
-	if (!cgroup_reclaim(sc))
-		__count_vm_events(item, nr_scanned);
+	if (!cgroup_reclaim(sc)) {
+		/* BS-A16: don't count direct PGSCAN while pcr reclaim is in
+		 * flight, so lmkd is not triggered abnormally in low memory
+		 * mode (from 5.15 309fa663). */
+		extern unsigned long reclaim_lock_flag;
+		if (!reclaim_lock_flag && item == PGSCAN_DIRECT)
+			__count_vm_events(item, nr_scanned);
+	}
 	__count_memcg_events(lruvec_memcg(lruvec), item, nr_scanned);
 	__count_vm_events(PGSCAN_ANON + file, nr_scanned);
 

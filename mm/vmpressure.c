@@ -236,6 +236,8 @@ static void vmpressure_work_fn(struct work_struct *work)
  *
  * This function does not return any value.
  */
+extern unsigned long reclaim_lock_flag;	/* BS-A16: pcd/pcr */
+
 void vmpressure(gfp_t gfp, struct mem_cgroup *memcg, bool tree,
 		unsigned long scanned, unsigned long reclaimed)
 {
@@ -287,7 +289,8 @@ void vmpressure(gfp_t gfp, struct mem_cgroup *memcg, bool tree,
 
 		if (scanned < vmpressure_win)
 			return;
-		schedule_work(&vmpr->work);
+		if (!reclaim_lock_flag)	/* BS-A16: pcd/pcr (5.15 e767c6f7) */
+			schedule_work(&vmpr->work);
 	} else {
 		enum vmpressure_levels level;
 

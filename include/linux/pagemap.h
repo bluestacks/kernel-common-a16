@@ -678,8 +678,25 @@ static inline struct folio *filemap_alloc_folio_noprof(gfp_t gfp, unsigned int o
 #define filemap_alloc_folio(...)				\
 	alloc_hooks(filemap_alloc_folio_noprof(__VA_ARGS__))
 
+extern void drop_pagecache_sb(struct super_block *sb, void *unused);
 static inline struct page *__page_cache_alloc(gfp_t gfp)
 {
+	/* BS-A16: pcd - restrict page cache size to sysctl_pcd_pclimit MB;
+	 * once the limit is reached, free page cache/dentries/inodes for
+	 * __GFP_FS allocations (from 5.15 e767c6f7). */
+	static int page_cache_size = 0;
+
+	if (sysctl_pcd_enabled) {
+		int pages_in_mb = 1024 * 1024 / PAGE_SIZE;
+		int page_cache_limit = sysctl_pcd_pclimit * pages_in_mb;
+		if ((gfp & __GFP_FS) && page_cache_size > page_cache_limit) {
+			page_cache_size = 0;
+			iterate_supers(drop_pagecache_sb, NULL);
+			drop_slab();
+		}
+		page_cache_size++;
+	}
+
 	return &filemap_alloc_folio(gfp, 0)->page;
 }
 

@@ -903,7 +903,8 @@ static const struct proc_ops kallsyms_proc_ops = {
 
 static int __init kallsyms_init(void)
 {
-	proc_create("kallsyms", 0444, NULL, &kallsyms_proc_ops);
+	/* BS-A16: revoke read permission for user apps (from 5.15 3921328c) */
+	proc_create("kallsyms", 0440, NULL, &kallsyms_proc_ops);
 	return 0;
 }
 device_initcall(kallsyms_init);

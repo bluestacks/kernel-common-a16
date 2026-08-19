@@ -441,6 +441,10 @@ void common_lsm_audit(struct common_audit_data *a,
 	void (*pre_audit)(struct audit_buffer *, void *),
 	void (*post_audit)(struct audit_buffer *, void *))
 {
+	/* BS-A16: selinux is disabled in user land on the player; don't print
+	 * selinux audit messages from kernel land (from 5.15 95195fd0). */
+	(void)dump_common_audit_data;
+#if 0
 	struct audit_buffer *ab;
 
 	if (a == NULL)
@@ -461,4 +465,5 @@ void common_lsm_audit(struct common_audit_data *a,
 		post_audit(ab, a);
 
 	audit_log_end(ab);
+#endif
 }

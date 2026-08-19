@@ -16,7 +16,7 @@
 /* A global variable is a bit ugly, but it keeps the code simple */
 int sysctl_drop_caches;
 
-static void drop_pagecache_sb(struct super_block *sb, void *unused)
+extern void drop_pagecache_sb(struct super_block *sb, void *unused)	/* BS-A16: pcd */
 {
 	struct inode *inode, *toput_inode = NULL;
 

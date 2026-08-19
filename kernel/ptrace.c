@@ -498,6 +498,14 @@ static int ptrace_traceme(void)
 {
 	int ret = -EPERM;
 
+	/* BS-A16: don't allow user apps to attach the parent process to itself
+	 * via PTRACE_TRACEME; restricted on real devices by selinux (5.15 6c7c0edb) */
+	{
+		kuid_t uid = current_uid();
+		if (uid.val >= 10000)
+			return ret;
+	}
+
 	write_lock_irq(&tasklist_lock);
 	/* Are we already being traced? */
 	if (!current->ptrace) {

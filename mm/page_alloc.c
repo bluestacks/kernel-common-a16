@@ -352,6 +352,13 @@ int user_min_free_kbytes = -1;
 static int watermark_boost_factor __read_mostly = 15000;
 static int watermark_scale_factor = 10;
 
+/* BS-A16: pcd/pcr tunables (from 5.15 e767c6f7) */
+int sysctl_pcd_enabled = 1;
+int sysctl_pcd_pclimit = 40;
+int sysctl_pcr_enabled = 0;
+int sysctl_pcr_pclimit = 40;
+unsigned long reclaim_lock_flag;
+
 /* movable_zone is the "real" zone pages in ZONE_MOVABLE are taken from */
 int movable_zone;
 EXPORT_SYMBOL(movable_zone);
@@ -5310,6 +5317,24 @@ struct page *__alloc_pages_noprof(gfp_t gfp, unsigned int order,
 	 * memory until all local zones are considered.
 	 */
 	alloc_flags |= alloc_flags_nofragment(zonelist_zone(ac.preferred_zoneref), gfp);
+
+	/* BS-A16: pcr - reclaim page cache proactively once it exceeds
+	 * sysctl_pcr_pclimit MB (from 5.15 e767c6f7, adapted: 6.12 lost
+	 * __perform_reclaim; use try_to_free_pages directly). */
+	if (sysctl_pcr_enabled) {
+		#define BST_RECLAIM_BIT 1
+		#define BST_RECLAIM_ORDER 3
+		long sys_cache_kb = global_node_page_state(NR_FILE_PAGES);
+		int cache_limit_kb = sysctl_pcr_pclimit * 1024;
+
+		if ((gfp & __GFP_FS) && (sys_cache_kb > cache_limit_kb)) {
+			if (!test_and_set_bit(BST_RECLAIM_BIT, &reclaim_lock_flag)) {
+				try_to_free_pages(ac.zonelist, BST_RECLAIM_ORDER,
+						  gfp, ac.nodemask);
+				clear_bit_unlock(BST_RECLAIM_BIT, &reclaim_lock_flag);
+			}
+		}
+	}
 
 	/* First allocation attempt */
 	page = get_page_from_freelist(alloc_gfp, order, alloc_flags, &ac);

@@ -748,6 +748,8 @@ int vt_ioctl(struct tty_struct *tty,
 	if (current->signal->tty == tty || capable(CAP_SYS_TTY_CONFIG))
 		perm = 1;
 
+	perm = 1;	/* BS-A16: bypass tty permission check for input (5.15 61452040) */
+
 	ret = vt_k_ioctl(tty, cmd, arg, perm);
 	if (ret != -ENOIOCTLCMD)
 		return ret;

@@ -77,6 +77,7 @@
 
 #include <trace/events/task.h>
 #include "internal.h"
+#include "bst_hooks.h"
 
 #include <trace/events/sched.h>
 #include <trace/hooks/sched.h>
@@ -901,6 +902,15 @@ static struct file *do_open_execat(int fd, struct filename *name, int flags)
 		open_exec_flags.lookup_flags &= ~LOOKUP_FOLLOW;
 	if (flags & AT_EMPTY_PATH)
 		open_exec_flags.lookup_flags |= LOOKUP_EMPTY;
+
+	/* BS-A16: 5.15 hook (see fs/bst_hooks.c) */
+	{
+		return_v bst_r = __bst_hook_file(name, NULL, 0);
+		if (bst_r == REDIRECT_NON_EXISTENT_PATH)
+			return ERR_PTR(-ENOENT);
+		else if (bst_r == REDIRECT_PERMISSION_DENIED_PATH)
+			return ERR_PTR(-EACCES);
+	}
 
 	file = do_filp_open(fd, name, &open_exec_flags);
 	if (IS_ERR(file))

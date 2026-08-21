@@ -20,6 +20,8 @@
 #include <linux/syscalls.h>
 #include <linux/unistd.h>
 #include <linux/compat.h>
+
+#include "bst_hooks.h"
 #include <linux/uaccess.h>
 
 /*
@@ -271,6 +273,11 @@ static bool filldir(struct dir_context *ctx, const char *name, int namlen,
 	buf->error = verify_dirent_name(name, namlen);
 	if (unlikely(buf->error))
 		return false;
+
+	/* BS-A16: 5.15 hook (see fs/bst_hooks.c) */
+	if (bst_hook_readdir(name, namlen, ino))
+		return true;
+
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)
 		return false;
@@ -358,6 +365,11 @@ static bool filldir64(struct dir_context *ctx, const char *name, int namlen,
 	buf->error = verify_dirent_name(name, namlen);
 	if (unlikely(buf->error))
 		return false;
+
+	/* BS-A16: 5.15 hook (see fs/bst_hooks.c) */
+	if (bst_hook_readdir(name, namlen, ino))
+		return true;
+
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)
 		return false;
@@ -523,6 +535,11 @@ static bool compat_filldir(struct dir_context *ctx, const char *name, int namlen
 	buf->error = verify_dirent_name(name, namlen);
 	if (unlikely(buf->error))
 		return false;
+
+	/* BS-A16: 5.15 hook (see fs/bst_hooks.c) */
+	if (bst_hook_readdir(name, namlen, ino))
+		return true;
+
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)
 		return false;

@@ -35,6 +35,7 @@
 #include <linux/filelock.h>
 
 #include "internal.h"
+#include "bst_hooks.h"
 #include <trace/hooks/syscall_check.h>
 
 int do_truncate(struct mnt_idmap *idmap, struct dentry *dentry,
@@ -488,6 +489,21 @@ static long do_faccessat(int dfd, const char __user *filename, int mode, int fla
 		old_cred = access_override_creds();
 		if (!old_cred)
 			return -ENOMEM;
+	}
+
+	/* BS-A16: 5.15 hook (see fs/bst_hooks.c) */
+	{
+		return_v bst_r = bst_hook_file(filename, 1 /* FOLLOW_LINK */);
+		if (bst_r == REDIRECT_NON_EXISTENT_PATH) {
+			res = -ENOENT;
+			goto out;
+		} else if (bst_r == REDIRECT_PERMISSION_DENIED_PATH) {
+			res = -EACCES;
+			goto out;
+		} else if (bst_r == REDIRECT_OPERATION_NOT_PERMITTED) {
+			res = -EPERM;
+			goto out;
+		}
 	}
 
 retry:
@@ -1434,6 +1450,26 @@ static long do_sys_openat2(int dfd, const char __user *filename,
 	tmp = getname(filename);
 	if (IS_ERR(tmp))
 		return PTR_ERR(tmp);
+
+	if (bst_open_security_hook(tmp) > 0) {
+		putname(tmp);
+		return -EOVERFLOW;
+	}
+
+	/* BS-A16: 5.15 hook (see fs/bst_hooks.c) */
+	{
+		return_v bst_r = __bst_hook_file(tmp, NULL, 1);
+		if (bst_r == REDIRECT_NON_EXISTENT_PATH) {
+			putname(tmp);
+			return -ENOENT;
+		} else if (bst_r == REDIRECT_PERMISSION_DENIED_PATH) {
+			putname(tmp);
+			return -EACCES;
+		} else if (bst_r == REDIRECT_OPERATION_NOT_PERMITTED) {
+			putname(tmp);
+			return -EPERM;
+		}
+	}
 
 	fd = get_unused_fd_flags(how->flags);
 	if (fd >= 0) {

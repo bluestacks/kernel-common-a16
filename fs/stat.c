@@ -24,6 +24,7 @@
 #include <asm/unistd.h>
 
 #include "internal.h"
+#include "bst_hooks.h"
 #include "mount.h"
 
 /**
@@ -307,6 +308,19 @@ static int vfs_statx(int dfd, struct filename *filename, int flags,
 	if (flags & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT | AT_EMPTY_PATH |
 		      AT_STATX_SYNC_TYPE))
 		return -EINVAL;
+
+	/* BS-A16: 5.15 hook (see fs/bst_hooks.c) */
+	if (!IS_ERR_OR_NULL(filename) && filename->name != NULL)
+		bst_stat_security_hook(filename);
+	{
+		return_v bst_r = __bst_hook_file((struct filename *)filename, NULL, 1);
+		if (bst_r == REDIRECT_NON_EXISTENT_PATH)
+			return -ENOENT;
+		else if (bst_r == REDIRECT_PERMISSION_DENIED_PATH)
+			return -EACCES;
+		else if (bst_r == REDIRECT_OPERATION_NOT_PERMITTED)
+			return -EPERM;
+	}
 
 retry:
 	error = filename_lookup(dfd, filename, lookup_flags, &path, NULL);

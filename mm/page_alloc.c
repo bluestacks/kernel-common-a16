@@ -352,8 +352,10 @@ int user_min_free_kbytes = -1;
 static int watermark_boost_factor __read_mostly = 15000;
 static int watermark_scale_factor = 10;
 
-/* BS-A16: pcd/pcr tunables (from 5.15 e767c6f7) */
-int sysctl_pcd_enabled = 1;
+/* BS-A16: pcd/pcr tunables (from 5.15 e767c6f7). pcd defaults off: the host
+ * removed its pcd plumbing in ROB-15241 (init.sh/UI), so the 5.15 behavior
+ * after that change was pcd permanently disabled. */
+int sysctl_pcd_enabled = 0;
 int sysctl_pcd_pclimit = 40;
 int sysctl_pcr_enabled = 0;
 int sysctl_pcr_pclimit = 40;

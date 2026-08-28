@@ -2094,20 +2094,6 @@ static struct ctl_table vm_table[] = {
 	},
 #endif
 	{
-		.procname	= "pcd_enabled",
-		.data		= &sysctl_pcd_enabled,
-		.maxlen		= sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= proc_dointvec,
-	},
-	{
-		.procname	= "pcd_pclimit",
-		.data		= &sysctl_pcd_pclimit,
-		.maxlen		= sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= proc_dointvec,
-	},
-	{
 		.procname	= "pcr_enabled",
 		.data		= &sysctl_pcr_enabled,
 		.maxlen		= sizeof(int),

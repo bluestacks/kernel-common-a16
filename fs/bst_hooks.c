@@ -467,7 +467,7 @@ void bst_init_path_trie(void) {
         BST_LIB_MODULES_PATH, BST_SYS_BUS_PCI_PATH, BST_SYS_CLASS_NET_WLAN0, BST_PROC_INTERRUPTS_PATH, BST_SYS_CLASS_THERMAL,
         BST_PROC_TIMERLIST_PATH, BST_SYS_POWER_SUPPLY_PATH, BST_PROC_PATH_PREFIX, BST_SYS_KERNEL_DEBUG_X86_PATH, BST_DEV_SOCKET_BSTFOLDERD_PATH, BST_PROC_IRQ_BST_CAMERA_PATH, BST_PROC_IRQ_BST_AUDIO_PATH,
         BST_PROC_IRQ_BST_INPUT_PATH, BST_PROC_IRQ_BST_PGAIPC_PATH, BST_PROC_IRQ_BST_SENSOR_PATH, BST_CONF_PROP_PATH, BST_MOUNT_VSF_PATH, BST_PROC_GLMODE_PATH,
-        BST_SYS_CLASS_INPUT, BST_PROC_MEM_PCD_ENABLED_PATH, BST_PROC_MEM_PCD_PCLIMIT_PATH, BST_PROC_MEM_PCR_ENABLED_PATH, BST_PROC_MEM_PCR_PCLIMIT_PATH,
+        BST_SYS_CLASS_INPUT, BST_PROC_MEM_PCR_ENABLED_PATH, BST_PROC_MEM_PCR_PCLIMIT_PATH,
         BST_DEVICES_VIRTUAL_MISC_BSTVMSG_PATH, BST_SYS_CLASS_MISC_BSTVMSG_PATH, BST_PROC_IRQ_BSTVMSG_PATH, BST_DEV_BSTVMSG_PATH, BST_LOGCAT_REDIRECTION_PATH};
 
     if (BST_DEBUG) printk(KERN_WARNING "initializing list for interested paths in bst_hooks\n");
@@ -1595,8 +1595,6 @@ file_access bst_check_ENOENT_required(char* orig_path, bool called_from_readdir_
             !bst_strncmp_path_check(orig_path, BST_CONF_PROP_PATH, strlen(BST_CONF_PROP_PATH), called_from_readdir_hook) ||
             !bst_strncmp_path_check(orig_path, BST_MOUNT_VSF_PATH, strlen(BST_MOUNT_VSF_PATH), called_from_readdir_hook) ||
             !bst_strncmp_path_check(orig_path, BST_PROC_GLMODE_PATH, strlen(BST_PROC_GLMODE_PATH), called_from_readdir_hook) ||
-            !bst_strncmp_path_check(orig_path, BST_PROC_MEM_PCD_ENABLED_PATH, strlen(BST_PROC_MEM_PCD_ENABLED_PATH), called_from_readdir_hook) ||
-            !bst_strncmp_path_check(orig_path, BST_PROC_MEM_PCD_PCLIMIT_PATH, strlen(BST_PROC_MEM_PCD_PCLIMIT_PATH), called_from_readdir_hook) ||
             !bst_strncmp_path_check(orig_path, BST_PROC_MEM_PCR_ENABLED_PATH, strlen(BST_PROC_MEM_PCR_ENABLED_PATH), called_from_readdir_hook) ||
             !bst_strncmp_path_check(orig_path, BST_PROC_MEM_PCR_PCLIMIT_PATH, strlen(BST_PROC_MEM_PCR_PCLIMIT_PATH), called_from_readdir_hook) ||
             (!bst_strncmp_path_check(orig_path, BST_DALVIK_CACHE_PATH, strlen(BST_DALVIK_CACHE_PATH), called_from_readdir_hook) && strstr(orig_path, BST_PACKAGE_1) != NULL) ||

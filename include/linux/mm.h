@@ -216,8 +216,6 @@ extern int sysctl_overcommit_memory;
 extern int sysctl_overcommit_ratio;
 
 /* BS-A16: page cache drop / reclaim tunables (from 5.15 e767c6f7) */
-extern int sysctl_pcd_enabled;
-extern int sysctl_pcd_pclimit;
 extern int sysctl_pcr_enabled;
 extern int sysctl_pcr_pclimit;
 extern unsigned long sysctl_overcommit_kbytes;

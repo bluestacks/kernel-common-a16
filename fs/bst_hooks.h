@@ -190,8 +190,6 @@
 #define BST_PROC_IRQ_BST_PGAIPC_PATH         "/proc/irq/22/bstpgaipc"
 #define BST_PROC_IRQ_BST_SENSOR_PATH         "/proc/irq/23/bstsensor"
 #define BST_PROC_GLMODE_PATH                 "/proc/glmode"
-#define BST_PROC_MEM_PCD_ENABLED_PATH        "/proc/sys/vm/pcd_enabled"
-#define BST_PROC_MEM_PCD_PCLIMIT_PATH        "/proc/sys/vm/pcd_pclimit"
 #define BST_PROC_MEM_PCR_ENABLED_PATH        "/proc/sys/vm/pcr_enabled"
 #define BST_PROC_MEM_PCR_PCLIMIT_PATH        "/proc/sys/vm/pcr_pclimit"
 

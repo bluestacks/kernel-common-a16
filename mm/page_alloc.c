@@ -46,6 +46,7 @@
 #include <linux/mmu_notifier.h>
 #include <linux/migrate.h>
 #include <linux/sched/mm.h>
+#include <linux/sched/rt.h>
 #include <linux/page_owner.h>
 #include <linux/page_pinner.h>
 #include <linux/page_table_check.h>
@@ -355,8 +356,6 @@ static int watermark_scale_factor = 10;
 /* BS-A16: pcd/pcr tunables (from 5.15 e767c6f7). pcd defaults off: the host
  * removed its pcd plumbing in ROB-15241 (init.sh/UI), so the 5.15 behavior
  * after that change was pcd permanently disabled. */
-int sysctl_pcd_enabled = 0;
-int sysctl_pcd_pclimit = 40;
 int sysctl_pcr_enabled = 0;
 int sysctl_pcr_pclimit = 40;
 unsigned long reclaim_lock_flag;
@@ -4431,6 +4430,25 @@ out:
 	return progress;
 }
 
+static inline void __bst_perform_reclaim(gfp_t gfp_mask,
+		unsigned int order, const struct alloc_context *ac)
+{
+	unsigned int noreclaim_flag;
+
+	cond_resched();
+
+	/* We now go into synchronous reclaim */
+	fs_reclaim_acquire(gfp_mask);
+	noreclaim_flag = memalloc_noreclaim_save();
+
+	bst_try_to_free_pages(ac->zonelist, order, gfp_mask, ac->nodemask);
+
+	memalloc_noreclaim_restore(noreclaim_flag);
+	fs_reclaim_release(gfp_mask);
+
+	cond_resched();
+}
+
 /* The really slow allocator path where we enter direct reclaim */
 static inline struct page *
 __alloc_pages_direct_reclaim(gfp_t gfp_mask, unsigned int order,
@@ -5320,20 +5338,30 @@ struct page *__alloc_pages_noprof(gfp_t gfp, unsigned int order,
 	 */
 	alloc_flags |= alloc_flags_nofragment(zonelist_zone(ac.preferred_zoneref), gfp);
 
-	/* BS-A16: pcr - reclaim page cache proactively once it exceeds
-	 * sysctl_pcr_pclimit MB (from 5.15 e767c6f7, adapted: 6.12 lost
-	 * __perform_reclaim; use try_to_free_pages directly). */
+	/* BS-A16: new PCR (port of A13 bst-v5.22.250-A13BootupOpt 6e6b545d):
+	 * reclaim only the page cache proactively once it exceeds
+	 * sysctl_pcr_pclimit MB; bst_try_to_free_pages skips slab reclaim,
+	 * swap and compaction, and vmpressure ignores PCR reclaims. */
 	if (sysctl_pcr_enabled) {
 		#define BST_RECLAIM_BIT 1
-		#define BST_RECLAIM_ORDER 3
+		#define BST_RECLAIM_ORDER 1
 		long sys_cache_kb = global_node_page_state(NR_FILE_PAGES);
-		int cache_limit_kb = sysctl_pcr_pclimit * 1024;
+		int pcr_cache_limit_kb = sysctl_pcr_pclimit * 1024;
 
-		if ((gfp & __GFP_FS) && (sys_cache_kb > cache_limit_kb)) {
-			if (!test_and_set_bit(BST_RECLAIM_BIT, &reclaim_lock_flag)) {
-				try_to_free_pages(ac.zonelist, BST_RECLAIM_ORDER,
-						  gfp, ac.nodemask);
-				clear_bit_unlock(BST_RECLAIM_BIT, &reclaim_lock_flag);
+		/* If reclaim is allowed and the page cache is large, try to free
+		 * some pages. Excluding some special cases, such as huge pages
+		 * are being allocated and the process is killed due to OOM. */
+		if ((gfp & __GFP_RECLAIM) == __GFP_RECLAIM &&
+				sys_cache_kb > pcr_cache_limit_kb) {
+			if ((!test_thread_flag(TIF_MEMDIE) || (gfp & __GFP_NOFAIL)) &&
+				(gfp & GFP_TRANSHUGE) != GFP_TRANSHUGE &&
+				!(gfp & __GFP_HIGH) &&	/* 6.12: GFP_ATOMIC implies __GFP_HIGH */
+				!(current->flags & PF_MEMALLOC) && !current_is_kswapd() &&
+				!rt_task(current) && !in_interrupt()) {
+				if (!test_and_set_bit(BST_RECLAIM_BIT, &reclaim_lock_flag)) {
+					__bst_perform_reclaim(gfp, BST_RECLAIM_ORDER, &ac);
+					clear_bit_unlock(BST_RECLAIM_BIT, &reclaim_lock_flag);
+				}
 			}
 		}
 	}

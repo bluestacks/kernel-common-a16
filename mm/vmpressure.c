@@ -281,6 +281,14 @@ void vmpressure(gfp_t gfp, struct mem_cgroup *memcg, bool tree,
 	if (!scanned)
 		return;
 
+	/*
+	 * BS-A16: pcr - if the reclaim is triggered by PCR or swapd, no counting
+	 * and no pressure calculation are performed, so PCR trimming does not
+	 * inflate PSI and get apps killed.
+	 */
+	if (reclaim_lock_flag || current_is_kswapd())
+		return;
+
 	if (tree) {
 		spin_lock(&vmpr->sr_lock);
 		scanned = vmpr->tree_scanned += scanned;
@@ -289,8 +297,7 @@ void vmpressure(gfp_t gfp, struct mem_cgroup *memcg, bool tree,
 
 		if (scanned < vmpressure_win)
 			return;
-		if (!reclaim_lock_flag)	/* BS-A16: pcd/pcr (5.15 e767c6f7) */
-			schedule_work(&vmpr->work);
+		schedule_work(&vmpr->work);
 	} else {
 		enum vmpressure_levels level;
 

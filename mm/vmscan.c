@@ -6166,7 +6166,8 @@ static inline bool should_continue_reclaim(struct pglist_data *pgdat,
 	return inactive_lru_pages > pages_for_compaction;
 }
 
-static void shrink_node_memcgs(pg_data_t *pgdat, struct scan_control *sc)
+static void shrink_node_memcgs(pg_data_t *pgdat, struct scan_control *sc,
+			     bool only_page_cache)
 {
 	struct mem_cgroup *target_memcg = sc->target_mem_cgroup;
 	struct mem_cgroup_reclaim_cookie reclaim = {
@@ -6234,8 +6235,10 @@ static void shrink_node_memcgs(pg_data_t *pgdat, struct scan_control *sc)
 
 		shrink_lruvec(lruvec, sc);
 
-		shrink_slab(sc->gfp_mask, pgdat->node_id, memcg,
-			    sc->priority);
+		/* BS-A16: pcr - page-cache-only reclaim skips slab shrink */
+		if (!only_page_cache)
+			shrink_slab(sc->gfp_mask, pgdat->node_id, memcg,
+				    sc->priority);
 
 		/* Record the group's reclaim efficiency */
 		if (!sc->proactive)
@@ -6257,14 +6260,16 @@ static void shrink_node_memcgs(pg_data_t *pgdat, struct scan_control *sc)
 	} while ((memcg = mem_cgroup_iter(target_memcg, memcg, partial)));
 }
 
-static void shrink_node(pg_data_t *pgdat, struct scan_control *sc)
+static void shrink_node(pg_data_t *pgdat, struct scan_control *sc, bool only_page_cache)
 {
 	unsigned long nr_reclaimed, nr_scanned, nr_node_reclaimed;
 	struct lruvec *target_lruvec;
 	bool reclaimable = false;
 
 	trace_android_vh_shrink_node(pgdat, sc->target_mem_cgroup);
-	if (lru_gen_enabled() && root_reclaim(sc)) {
+	/* BS-A16: pcr - page-cache-only reclaim uses the legacy path, the
+	 * multi-gen LRU path does not take the only_page_cache flag */
+	if (!only_page_cache && lru_gen_enabled() && root_reclaim(sc)) {
 		memset(&sc->nr, 0, sizeof(sc->nr));
 		lru_gen_shrink_node(pgdat, sc);
 		return;
@@ -6280,7 +6285,7 @@ again:
 
 	prepare_scan_control(pgdat, sc);
 
-	shrink_node_memcgs(pgdat, sc);
+	shrink_node_memcgs(pgdat, sc, only_page_cache);
 
 	flush_reclaim_state(sc);
 
@@ -6445,7 +6450,8 @@ static void consider_reclaim_throttle(pg_data_t *pgdat, struct scan_control *sc)
  * If a zone is deemed to be full of pinned pages then just give it a light
  * scan then give up on it.
  */
-static void shrink_zones(struct zonelist *zonelist, struct scan_control *sc)
+static void shrink_zones(struct zonelist *zonelist, struct scan_control *sc,
+			   bool only_page_cache)
 {
 	struct zoneref *z;
 	struct zone *zone;
@@ -6489,7 +6495,8 @@ static void shrink_zones(struct zonelist *zonelist, struct scan_control *sc)
 			 * noticeable problem, like transparent huge
 			 * page allocations.
 			 */
-			if (IS_ENABLED(CONFIG_COMPACTION) &&
+			if (!only_page_cache &&
+			    IS_ENABLED(CONFIG_COMPACTION) &&
 			    sc->order > PAGE_ALLOC_COSTLY_ORDER &&
 			    compaction_ready(zone, sc)) {
 				sc->compaction_ready = true;
@@ -6527,7 +6534,7 @@ static void shrink_zones(struct zonelist *zonelist, struct scan_control *sc)
 		if (zone->zone_pgdat == last_pgdat)
 			continue;
 		last_pgdat = zone->zone_pgdat;
-		shrink_node(zone->zone_pgdat, sc);
+		shrink_node(zone->zone_pgdat, sc, only_page_cache);
 	}
 
 	if (first_pgdat)
@@ -6588,7 +6595,7 @@ static void modify_scan_control(struct scan_control *sc)
  * 		else, the number of pages reclaimed
  */
 static unsigned long do_try_to_free_pages(struct zonelist *zonelist,
-					  struct scan_control *sc)
+				  struct scan_control *sc, bool only_page_cache)
 {
 	int initial_priority = sc->priority;
 	pg_data_t *last_pgdat;
@@ -6607,7 +6614,7 @@ retry:
 			vmpressure_prio(sc->gfp_mask, sc->target_mem_cgroup,
 					sc->priority);
 		sc->nr_scanned = 0;
-		shrink_zones(zonelist, sc);
+		shrink_zones(zonelist, sc, only_page_cache);
 
 		if (sc->nr_reclaimed >= sc->nr_to_reclaim)
 			break;
@@ -6868,7 +6875,7 @@ unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
 	trace_mm_vmscan_direct_reclaim_begin(order, sc.gfp_mask);
 	trace_android_vh_direct_reclaim_begin(&prio);
 
-	nr_reclaimed = do_try_to_free_pages(zonelist, &sc);
+	nr_reclaimed = do_try_to_free_pages(zonelist, &sc, false);
 
 	trace_android_vh_direct_reclaim_end(prio);
 	trace_mm_vmscan_direct_reclaim_end(nr_reclaimed);
@@ -6877,6 +6884,45 @@ unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
 	return nr_reclaimed;
 }
 EXPORT_SYMBOL_GPL(try_to_free_pages);
+
+/* BS-A16: new PCR (port of A13 bst-v5.22.250-A13BootupOpt 6e6b545d) -
+ * page-cache-only synchronous reclaim used by __bst_perform_reclaim. */
+unsigned long bst_try_to_free_pages(struct zonelist *zonelist, int order,
+				gfp_t gfp_mask, nodemask_t *nodemask)
+{
+	unsigned long nr_reclaimed;
+	struct scan_control sc = {
+		.nr_to_reclaim = SWAP_CLUSTER_MAX,
+		.gfp_mask = current_gfp_context(gfp_mask),
+		.reclaim_idx = gfp_zone(gfp_mask),
+		.order = order,
+		.nodemask = nodemask,
+		.priority = DEF_PRIORITY,
+		.may_writepage = 0,
+		.may_unmap = 1,
+		.may_swap = 0,
+	};
+
+	BUILD_BUG_ON(MAX_PAGE_ORDER >= S8_MAX);
+	BUILD_BUG_ON(DEF_PRIORITY > S8_MAX);
+	BUILD_BUG_ON(MAX_NR_ZONES > S8_MAX);
+
+	/*
+	 * Do not enter reclaim if fatal signal was delivered while throttled.
+	 * 1 is returned so that the page allocator does not OOM kill at this
+	 * point.
+	 */
+	if (throttle_direct_reclaim(sc.gfp_mask, zonelist, nodemask))
+		return 1;
+
+	set_task_reclaim_state(current, &sc.reclaim_state);
+
+	nr_reclaimed = do_try_to_free_pages(zonelist, &sc, true);
+
+	set_task_reclaim_state(current, NULL);
+
+	return nr_reclaimed;
+}
 
 #ifdef CONFIG_MEMCG
 
@@ -6952,7 +6998,7 @@ unsigned long try_to_free_mem_cgroup_pages(struct mem_cgroup *memcg,
 	trace_mm_vmscan_memcg_reclaim_begin(0, sc.gfp_mask);
 	noreclaim_flag = memalloc_noreclaim_save();
 
-	nr_reclaimed = do_try_to_free_pages(zonelist, &sc);
+	nr_reclaimed = do_try_to_free_pages(zonelist, &sc, false);
 
 	memalloc_noreclaim_restore(noreclaim_flag);
 	trace_mm_vmscan_memcg_reclaim_end(nr_reclaimed);
@@ -7145,7 +7191,7 @@ static bool kswapd_shrink_node(pg_data_t *pgdat,
 	 * now pressure is applied based on node LRU order.
 	 */
 	if (!bypass)
-		shrink_node(pgdat, sc);
+		shrink_node(pgdat, sc, false);
 
 	/*
 	 * Fragmentation may mean that the system cannot be rebalanced for
@@ -7711,7 +7757,7 @@ unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
 	noreclaim_flag = memalloc_noreclaim_save();
 	set_task_reclaim_state(current, &sc.reclaim_state);
 
-	nr_reclaimed = do_try_to_free_pages(zonelist, &sc);
+	nr_reclaimed = do_try_to_free_pages(zonelist, &sc, false);
 
 	set_task_reclaim_state(current, NULL);
 	memalloc_noreclaim_restore(noreclaim_flag);
@@ -7883,7 +7929,7 @@ static int __node_reclaim(struct pglist_data *pgdat, gfp_t gfp_mask, unsigned in
 		 * priorities until we have enough memory freed.
 		 */
 		do {
-			shrink_node(pgdat, &sc);
+			shrink_node(pgdat, &sc, false);
 		} while (sc.nr_reclaimed < nr_pages && --sc.priority >= 0);
 	}
 

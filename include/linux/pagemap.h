@@ -672,23 +672,8 @@ struct folio *filemap_alloc_folio_noprof(gfp_t gfp, unsigned int order);
 extern void drop_pagecache_sb(struct super_block *sb, void *unused);
 static inline struct folio *filemap_alloc_folio_noprof(gfp_t gfp, unsigned int order)
 {
-	/* BS-A16: pcd - restrict page cache size to sysctl_pcd_pclimit MB; once
-	 * the limit is reached, free page cache/dentries/inodes for __GFP_FS
-	 * allocations (from 5.15 e767c6f7; hooked here because 6.12 page cache
-	 * allocs no longer go through __page_cache_alloc). */
-	static int page_cache_size = 0;
-
-	if (sysctl_pcd_enabled) {
-		int pages_in_mb = 1024 * 1024 / PAGE_SIZE;
-		int page_cache_limit = sysctl_pcd_pclimit * pages_in_mb;
-		if ((gfp & __GFP_FS) && page_cache_size > page_cache_limit) {
-			page_cache_size = 0;
-			iterate_supers(drop_pagecache_sb, NULL);
-			drop_slab();
-		}
-		page_cache_size++;
-	}
-
+	/* BS-A16: pcd removed - superseded by the new PCR (bst page cache
+	 * reclaim in __alloc_pages); see mm/page_alloc.c. */
 	return folio_alloc_noprof(gfp, order);
 }
 #endif

@@ -279,6 +279,7 @@ void bst_stat_security_hook(struct filename* tmp);
 int bst_open_security_hook(struct filename* tmp);
 bool bst_calling_pkg_starts_with(const char *target_str);
 bool bst_str_starts_with(const char *source, const char *start_str);
+bool bst_check_dg_path(const char* filename);
 
 static inline bool bst_current_uid_is_system(void) {
 	uid_t uid = __kuid_val(current_uid());

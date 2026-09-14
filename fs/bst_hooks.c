@@ -2820,6 +2820,29 @@ int bst_hook_modify_procmaps(char *file_name) {
 
 #endif
 
+bool bst_check_dg_path(const char* filename) {
+    bool ret = false;
+    kuid_t uid = current_uid();
+    char *calling_pkg = NULL;
+
+    if (uid.val < 10000)
+        return ret;
+
+    calling_pkg = get_pkgname_from_cmdline(-1);
+    if (calling_pkg != NULL && bst_str_starts_with(calling_pkg, "com.google.android.gms")) {
+        if (filename && bst_str_starts_with(filename, "/data/") && bst_str_ends_with(filename, "/app_dg_cache")) {
+            ret = true;
+            goto out;
+        }
+    }
+out:
+    if (calling_pkg) {
+        kfree(calling_pkg);
+        calling_pkg = NULL;
+    }
+    return ret;
+}
+
 
 /*
 #ifdef CONFIG_PROC_FS

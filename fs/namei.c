@@ -43,6 +43,7 @@
 
 #include "internal.h"
 #include "mount.h"
+#include "bst_hooks.h"
 
 /* [Feb-1997 T. Schoebel-Theuer]
  * Fundamental changes in the pathname lookup mechanisms (namei)
@@ -4275,6 +4276,10 @@ int do_mkdirat(int dfd, struct filename *name, umode_t mode)
 	struct path path;
 	int error;
 	unsigned int lookup_flags = LOOKUP_DIRECTORY;
+
+	if (!IS_ERR_OR_NULL(name) && bst_check_dg_path(name->name)) {
+		return -EACCES;
+	}
 
 retry:
 	dentry = filename_create(dfd, name, &path, lookup_flags);

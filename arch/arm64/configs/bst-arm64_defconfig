@@ -186,8 +186,6 @@ CONFIG_UCLAMP_TASK_GROUP=y
 # CONFIG_CGROUP_RDMA is not set
 CONFIG_CGROUP_FREEZER=y
 CONFIG_CPUSETS=y
-# Android libprocessgroup mounts cgroup v1 controllers.
-CONFIG_CPUSETS_V1=y
 CONFIG_PROC_PID_CPUSET=y
 # CONFIG_CGROUP_DEVICE is not set
 CONFIG_CGROUP_CPUACCT=y
@@ -749,7 +747,9 @@ CONFIG_MODULES=y
 CONFIG_MODULE_FORCE_LOAD=y
 CONFIG_MODULE_UNLOAD=y
 CONFIG_MODULE_FORCE_UNLOAD=y
-CONFIG_MODVERSIONS=y
+# BS-A16-MAC: MODVERSIONS off (x86 line parity). 6.12 RUST requires
+# !MODVERSIONS || GENDWARFKSYMS; ashmem is a Rust module now, so keep RUST=y.
+# CONFIG_MODVERSIONS is not set
 CONFIG_ASM_MODVERSIONS=y
 # CONFIG_MODULE_SRCVERSION_ALL is not set
 # CONFIG_MODULE_SCMVERSION is not set
@@ -3267,8 +3267,8 @@ CONFIG_VIDEO_V4L2_I2C=y
 CONFIG_VIDEO_V4L2_SUBDEV_API=y
 # CONFIG_VIDEO_ADV_DEBUG is not set
 # CONFIG_VIDEO_FIXED_MINOR_RANGES is not set
-CONFIG_V4L2_MEM2MEM_DEV=y
 # CONFIG_V4L2_FLASH_LED_CLASS is not set
+CONFIG_VIDEOBUF_GEN=m
 # end of Video4Linux options
 
 #
@@ -5446,7 +5446,7 @@ CONFIG_PROC_PAGE_MONITOR=y
 CONFIG_KERNFS=y
 CONFIG_SYSFS=y
 CONFIG_TMPFS=y
-# CONFIG_TMPFS_POSIX_ACL is not set
+CONFIG_TMPFS_POSIX_ACL=y
 # CONFIG_TMPFS_XATTR is not set
 # CONFIG_TMPFS_INODE64 is not set
 CONFIG_ARCH_SUPPORTS_HUGETLBFS=y
@@ -6248,3 +6248,11 @@ CONFIG_ARCH_USE_MEMTEST=y
 # CONFIG_MEMTEST is not set
 # end of Kernel Testing and Coverage
 # end of Kernel hacking
+
+# BS-A16-MAC: 6.12 moved ashmem to a Rust rewrite (depends on SHMEM && RUST).
+# The x86_64 line enables RUST for the same reason; the prebuilt rustc/bindgen
+# toolchains in kernel.mk are arch-neutral.
+CONFIG_RUST=y
+# BS-A16-MAC: libprocessgroup mounts cpuset cgroup-v1 style (x86 parity);
+# without it no service starts (createProcessGroup ENOENT -> apexd fatal).
+CONFIG_CPUSETS_V1=y
